@@ -1,8 +1,10 @@
+from abc import ABC
 import numpy as np
+from Ray import Ray
 from surfaces.SurfaceAbs import SurfaceAbs
 
 
-class Object3D(SurfaceAbs):
+class Object3D(SurfaceAbs, ABC):
     def __init__(self, material_index):
         super().__init__()
         self.material_index = material_index
@@ -22,3 +24,6 @@ class Object3D(SurfaceAbs):
         camera_coords = np.dot(view_matrix, homogeneous_surface_coords)
 
         return camera_coords[:3]
+
+    def intersect(self, ray: Ray):
+        pass

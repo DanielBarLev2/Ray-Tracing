@@ -1,7 +1,8 @@
 import numpy as np
+from surfaces.SurfaceAbs import SurfaceAbs
+from Ray import Ray
 
-
-class InfinitePlane:
+class InfinitePlane(SurfaceAbs):
     def __init__(self, normal, offset, material_index):
         self.material_index = material_index
         self.normal = np.array(normal)
@@ -17,3 +18,6 @@ class InfinitePlane:
         """
         self.normal = np.dot(view_matrix[:3, :3], self.normal)
         self.offset = self.offset - np.dot(self.normal, view_matrix[:3, 3])
+
+    def intersect(self, ray: Ray):
+        pass

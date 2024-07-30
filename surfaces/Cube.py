@@ -1,3 +1,4 @@
+from Ray import Ray
 from surfaces.Object3D import Object3D
 
 
@@ -14,3 +15,6 @@ class Cube(Object3D):
         :return:
         """
         self.position = super().transform_to_camera_coordinates(self.position, view_matrix)
+
+    def intersect(self, ray: Ray):
+        pass

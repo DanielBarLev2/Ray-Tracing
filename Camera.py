@@ -39,5 +39,5 @@ class Camera:
 
         return view_matrix
 
-    def transform_to_camera(self, view_matrix: np.ndarray) -> np.ndarray:
+    def transform_to_camera(self, view_matrix: np.ndarray):
         self.position = self.position * view_matrix

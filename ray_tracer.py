@@ -1,13 +1,17 @@
 import argparse
 import numpy as np
+from util import *
+from Ray import Ray
 from PIL import Image
 from Light import Light
 from Camera import Camera
+from BSPNode import BSPNode
 from Material import Material
 from surfaces.Cube import Cube
 from surfaces.Sphere import Sphere
 from surfaces.Object3D import Object3D
 from SceneSettings import SceneSettings
+from surfaces.SurfaceAbs import SurfaceAbs
 from surfaces.InfinitePlane import InfinitePlane
 
 X_DIRECTION = np.array([1, 0, 0])
@@ -73,14 +77,31 @@ def main():
     # Parse the scene file
     camera, scene_settings, objects = parse_scene_file(args.scene_file)
 
-    # TODO: Implement the ray tracer
     # 6.1.1:
     view_matrix = camera.create_view_matrix()
-    for obj in objects:
-        if isinstance(obj, Object3D):
-            obj.transform_to_camera(view_matrix)
 
-    shoot_pixels_rays(camera, image_width=args.width, image_height=args.height)
+    planes = []
+    surfaces = []
+    light_sources = []
+    for obj in objects:
+        if isinstance(obj, InfinitePlane):
+            obj.transform_to_camera(view_matrix=view_matrix)
+            planes.append(obj)
+
+        elif isinstance(obj, Object3D):
+            obj.transform_to_camera(view_matrix=view_matrix)
+            surfaces.append(obj)
+
+        elif isinstance(obj, Light):
+            obj.transform_to_camera(view_matrix=view_matrix)
+            light_sources.append(obj)
+
+    # 6.1.2
+    ray_vectors = get_ray_vectors(camera, image_width=args.width, image_height=args.height)
+
+    # 6.2
+    bsp_space = BSPNode.build_bsp_tree(surfaces=surfaces+planes)
+
     # Dummy result
     image_array = np.zeros((500, 500, 3))
 
@@ -88,23 +109,57 @@ def main():
     save_image(image_array=image_array, path=args.output_image)
 
 
-def shoot_pixels_rays(camera: Camera, image_width: int, image_height: int):
+def get_ray_vectors(camera: Camera, image_width: int, image_height: int) -> np.ndarray:
+    """
+    Generates a 3D array of ray vectors for each pixel in the specified image dimensions based on the camera settings.
+    :param camera: the camera object with properties defining its screen size and distance.
+    :param image_width: the number of horizontal pixels in the image.
+    :param image_height: the number of vertical pixels in the image.
+    :return:  A 3D array (image_height, image_width, 3) where each element is a vector [x, y, z] representing
+     the direction of the ray passing through the corresponding pixel.
+    """
     w = camera.screen_width
     h = w / image_width * image_height
 
-    h_granularity = h/image_height
-    w_granularity = w/image_width
+    h_granularity = h / image_height
+    w_granularity = w / image_width
 
-    image = np.ndarray(shape=(image_height, image_width, 3))
+    screen_center = Z_DIRECTION * camera.screen_distance
+    screen_pixel_0_0 = screen_center + ((h - h_granularity) / 2 * Y_DIRECTION) - ((w - w_granularity) / 2 * X_DIRECTION)
 
-    screen_center = Z_DIRECTION* camera.screen_distance
-    screen_pixel_0_0 = screen_center + ((h-h_granularity)/2 * Y_DIRECTION) - ((w-w_granularity)/2 * X_DIRECTION)
-    # todo: change to matrix calculation
-    for i in range(image_height):
-        for j in range(image_width):
-            ray = screen_pixel_0_0 - (i*h_granularity * Y_DIRECTION) + (j *w_granularity *X_DIRECTION)
+    i_indices = np.arange(image_height)
+    j_indices = np.arange(image_width)
+    jj, ii = np.meshgrid(j_indices, i_indices)
 
+    ray_vectors = (
+            screen_pixel_0_0
+            - (ii[:, :, np.newaxis] * h_granularity * Y_DIRECTION)
+            + (jj[:, :, np.newaxis] * w_granularity * X_DIRECTION)
+    )
 
+    return ray_vectors
 
-if __name__ == '__main__':
-    main()
+    def calculate_surface_color(surface: SurfaceAbs, ray: Ray, intersection_point: Vector, light_sources: list[Light]):
+        total_light = calculate_light_on_point(intersection_point, lights=light_sources)
+        ray_tracing(ray)
+
+    def ray_tracing(initial_ray: Ray):
+        return None
+
+    def calculate_light_on_point(point: Vector, lights: list[Light]):
+        total_light: ColorVector = np.array([0, 0, 0, 0])
+
+        def closest_surface(point: Vector, ray: Ray):
+            return (None, None)
+
+        for light_source in lights:
+            ray: Ray = Ray(ray_source=point, ray_direction=light_source.position - point)
+            (surface, t) = closest_surface(point, ray)
+            if surface is None:
+                total_light += np.append(light_source.color, 1)
+        total_light = (total_light / total_light[3])[:2]
+
+        return total_light
+
+    if __name__ == '__main__':
+        main()
