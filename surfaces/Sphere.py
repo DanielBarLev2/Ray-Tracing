@@ -1,5 +1,4 @@
 import numpy as np
-
 from surfaces.Object3D import Object3D
 
 
@@ -13,6 +12,5 @@ class Sphere(Object3D):
         """
         Transform the center of the sphere using the view matrix.
         :param view_matrix: shifts and rotates the world coordinates to be aligned and centered on the camera.
-        :return:
         """
         self.position = super().transform_to_camera_coordinates(self.position, view_matrix)

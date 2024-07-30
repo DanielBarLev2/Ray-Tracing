@@ -5,3 +5,4 @@ class Material:
         self.reflection_color = reflection_color
         self.shininess = shininess
         self.transparency = transparency
+

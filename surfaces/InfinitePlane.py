@@ -1,11 +1,9 @@
 import numpy as np
 
-from surfaces.Object3D import Object3D
 
-
-class InfinitePlane(Object3D):
+class InfinitePlane:
     def __init__(self, normal, offset, material_index):
-        super().__init__(material_index)
+        self.material_index = material_index
         self.normal = np.array(normal)
         self.offset = offset
 
@@ -19,4 +17,3 @@ class InfinitePlane(Object3D):
         """
         self.normal = np.dot(view_matrix[:3, :3], self.normal)
         self.offset = self.offset - np.dot(self.normal, view_matrix[:3, 3])
-
