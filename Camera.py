@@ -8,7 +8,7 @@ class Camera:
         self.up_vector = np.array(up_vector)
         self.screen_distance = screen_distance
         self.screen_width = screen_width
-        self.look_direction = look_at - position
+        self.look_direction = self.look_at - self.position
 
     def create_view_matrix(self) -> np.ndarray:
         """
@@ -38,3 +38,6 @@ class Camera:
                                 [0, 0, 0, 1]])
 
         return view_matrix
+
+    def transform_to_camera(self, view_matrix: np.ndarray) -> np.ndarray:
+        self.position = self.position * view_matrix

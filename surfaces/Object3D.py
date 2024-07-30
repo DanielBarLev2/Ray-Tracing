@@ -1,7 +1,8 @@
+from abc import ABC, abstractmethod
 import numpy as np
 
 
-class Object3D:
+class Object3D(ABC):
     def __init__(self, material_index):
         self.material_index = material_index
 
@@ -19,3 +20,8 @@ class Object3D:
         camera_coords = np.dot(view_matrix, homogeneous_surface_coords)
 
         return camera_coords[:3]
+
+    @abstractmethod
+    def transform_to_camera(self, view_matrix: np.ndarray):
+        """This method must be overridden in subclasses"""
+        pass

@@ -6,8 +6,13 @@ from Camera import Camera
 from Material import Material
 from surfaces.Cube import Cube
 from surfaces.Sphere import Sphere
+from surfaces.Object3D import Object3D
 from SceneSettings import SceneSettings
 from surfaces.InfinitePlane import InfinitePlane
+
+X_DIRECTION = np.array([1, 0, 0])
+Y_DIRECTION = np.array([0, 1, 0])
+Z_DIRECTION = np.array([0, 0, 1])
 
 
 def parse_scene_file(file_path):
@@ -54,9 +59,7 @@ def save_image(image_array: np.ndarray, path: str) -> None:
     :return:
     """
     image = Image.fromarray(np.uint8(image_array))
-
-    # Save the image to a file
-    image.save("scenes/Spheres.png")
+    image.save(path)
 
 
 def main():
@@ -71,10 +74,13 @@ def main():
     camera, scene_settings, objects = parse_scene_file(args.scene_file)
 
     # TODO: Implement the ray tracer
-    # 6.1:
+    # 6.1.1:
     view_matrix = camera.create_view_matrix()
+    for obj in objects:
+        if isinstance(obj, Object3D):
+            obj.transform_to_camera(view_matrix)
 
-
+    shoot_pixels_rays(camera, image_width=args.width, image_height=args.height)
     # Dummy result
     image_array = np.zeros((500, 500, 3))
 
@@ -82,23 +88,22 @@ def main():
     save_image(image_array=image_array, path=args.output_image)
 
 
-
-def shoot_pixels_rays(camera: Camera, image_width:int, image_height:int):
-    X_DIRECTION = np.array([1,0,0])
-    Y_DIRECTION = np.array([0,1,0])
-    Z_DIRECTION = np.array([0,0,1])
-
+def shoot_pixels_rays(camera: Camera, image_width: int, image_height: int):
     w = camera.screen_width
     h = w / image_width * image_height
 
-    h_granularity = h/image_height;
-    w_granularity = w/image_width;
-    screen_center = camera.position + Z_DIRECTION* camera.screen_distance
-    pixel_0_0 = screen_center + (h/2 * Y_DIRECTION) + (h/2 * X_DIRECTION)
+    h_granularity = h/image_height
+    w_granularity = w/image_width
+
+    image = np.ndarray(shape=(image_height, image_width, 3))
+
+    screen_center = Z_DIRECTION* camera.screen_distance
+    screen_pixel_0_0 = screen_center + ((h-h_granularity)/2 * Y_DIRECTION) - ((w-w_granularity)/2 * X_DIRECTION)
     # todo: change to matrix calculation
-    for i in range(image_width):
-        for j in range(image_height):
-            ray = pixel_0_0 - (i * Y_DIRECTION) -(j * X_DIRECTION)
+    for i in range(image_height):
+        for j in range(image_width):
+            ray = screen_pixel_0_0 - (i*h_granularity * Y_DIRECTION) + (j *w_granularity *X_DIRECTION)
+
 
 
 if __name__ == '__main__':
