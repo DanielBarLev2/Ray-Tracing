@@ -1,18 +1,17 @@
 import argparse
-from PIL import Image
 import numpy as np
-
-from camera import Camera
-from light import Light
-from material import Material
-from scene_settings import SceneSettings
-from surfaces.cube import Cube
-from surfaces.infinite_plane import InfinitePlane
-from surfaces.sphere import Sphere
+from PIL import Image
+from Light import Light
+from Camera import Camera
+from Material import Material
+from surfaces.Cube import Cube
+from surfaces.Sphere import Sphere
+from SceneSettings import SceneSettings
+from surfaces.InfinitePlane import InfinitePlane
 
 
 def parse_scene_file(file_path):
-    objects = []
+    objects_3D = []
     camera = None
     scene_settings = None
     with open(file_path, 'r') as f:
@@ -29,25 +28,31 @@ def parse_scene_file(file_path):
                 scene_settings = SceneSettings(params[:3], params[3], params[4])
             elif obj_type == "mtl":
                 material = Material(params[:3], params[3:6], params[6:9], params[9], params[10])
-                objects.append(material)
+                objects_3D.append(material)
             elif obj_type == "sph":
                 sphere = Sphere(params[:3], params[3], int(params[4]))
-                objects.append(sphere)
+                objects_3D.append(sphere)
             elif obj_type == "pln":
                 plane = InfinitePlane(params[:3], params[3], int(params[4]))
-                objects.append(plane)
+                objects_3D.append(plane)
             elif obj_type == "box":
                 cube = Cube(params[:3], params[3], int(params[4]))
-                objects.append(cube)
+                objects_3D.append(cube)
             elif obj_type == "lgt":
                 light = Light(params[:3], params[3:6], params[6], params[7], params[8])
-                objects.append(light)
+                objects_3D.append(light)
             else:
                 raise ValueError("Unknown object type: {}".format(obj_type))
-    return camera, scene_settings, objects
+    return camera, scene_settings, objects_3D
 
 
-def save_image(image_array):
+def save_image(image_array: np.ndarray, path: str) -> None:
+    """
+
+    :param image_array:
+    :param path:
+    :return:
+    """
     image = Image.fromarray(np.uint8(image_array))
 
     # Save the image to a file
@@ -66,12 +71,34 @@ def main():
     camera, scene_settings, objects = parse_scene_file(args.scene_file)
 
     # TODO: Implement the ray tracer
+    # 6.1:
+    view_matrix = camera.create_view_matrix()
+
 
     # Dummy result
     image_array = np.zeros((500, 500, 3))
 
     # Save the output image
-    save_image(image_array)
+    save_image(image_array=image_array, path=args.output_image)
+
+
+
+def shoot_pixels_rays(camera: Camera, image_width:int, image_height:int):
+    X_DIRECTION = np.array([1,0,0])
+    Y_DIRECTION = np.array([0,1,0])
+    Z_DIRECTION = np.array([0,0,1])
+
+    w = camera.screen_width
+    h = w / image_width * image_height
+
+    h_granularity = h/image_height;
+    w_granularity = w/image_width;
+    screen_center = camera.position + Z_DIRECTION* camera.screen_distance
+    pixel_0_0 = screen_center + (h/2 * Y_DIRECTION) + (h/2 * X_DIRECTION)
+    # todo: change to matrix calculation
+    for i in range(image_width):
+        for j in range(image_height):
+            ray = pixel_0_0 - (i * Y_DIRECTION) -(j * X_DIRECTION)
 
 
 if __name__ == '__main__':
