@@ -6,8 +6,8 @@ from surfaces.SurfaceAbs import SurfaceAbs
 
 class Object3D(SurfaceAbs, ABC):
     def __init__(self, material_index):
-        super().__init__()
-        self.material_index = material_index
+        super().__init__(material_index)
+
 
     @staticmethod
     def transform_to_camera_coordinates(surface_coords: np.ndarray, view_matrix: np.ndarray) -> np.ndarray:

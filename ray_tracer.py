@@ -77,8 +77,9 @@ def main():
     # Parse the scene file
     camera, scene_settings, objects = parse_scene_file(args.scene_file)
 
-    # 6.1.1:
+    # 6.1.1: Discover the location of the pixel on the camera’s screen
     view_matrix = camera.create_view_matrix()
+    camera.transform_to_camera(view_matrix=view_matrix)
 
     planes = []
     surfaces = []
@@ -96,25 +97,27 @@ def main():
             obj.transform_to_camera(view_matrix=view_matrix)
             light_sources.append(obj)
 
-    # 6.1.2
-    ray_vectors = get_ray_vectors(camera, image_width=args.width, image_height=args.height)
+    # 6.1.2: Construct a ray from the camera through that pixel
+    ray_directions = get_ray_vectors(camera, image_width=args.width, image_height=args.height)
 
-    # 6.2
-    # rays_intersections_planes = np.zeros_like(ray_vectors.reshape(args.width * args.height, 3))
-    rays_intersections_planes = np.zeros_like(ray_vectors.reshape(args.width * args.height, 3))
+    # 6.2: Check the intersection of the ray with all surfaces in the scene
+    rays_interactions = []
 
-    for index, ray in enumerate(ray_vectors.reshape(args.width * args.height, 3)):
-        for plane in planes:
-            intersection = plane.intersect(ray_source=camera.position, ray_direction=ray)
-            rays_intersections_planes[index] = intersection
+    rays_intersections_planes = []
+    for plane in planes:
+        ray_sources = np.full_like(ray_directions, camera.position)
+        plane_intersection = plane.intersect_vectorized(ray_sources=ray_sources, ray_directions=ray_directions)
+        rays_intersections_planes.append(plane_intersection)
 
-    rays_intersections_planes = rays_intersections_planes.reshape(args.width, args.height, 3)
-    r = planes[0].intersect_vectorized(ray_sources=np.full_like(ray_vectors, camera.position), ray_directions=ray_vectors)
+    rays_interactions.append(rays_intersections_planes)
 
     bsp_space = BSPNode.build_bsp_tree(surfaces=surfaces)
 
+    # 6.3: Find the nearest intersection of the ray. This is the surface that will be seen in the image.
+    hit_rays = z_buffer(ray_interactions=rays_interactions)
+
     # Dummy result
-    image_array = np.zeros((500, 500, 3))
+    image_array = np.zeros((args.width, args.height, 3))
 
     # Save the output image
     save_image(image_array=image_array, path=args.output_image)
@@ -145,10 +148,32 @@ def get_ray_vectors(camera: Camera, image_width: int, image_height: int) -> np.n
     ray_vectors = (
             screen_pixel_0_0
             - (ii[:, :, np.newaxis] * h_granularity * Y_DIRECTION)
-            + (jj[:, :, np.newaxis] * w_granularity * X_DIRECTION)
-    )
+            + (jj[:, :, np.newaxis] * w_granularity * X_DIRECTION))
 
     return ray_vectors
+
+
+# @todo: test z-buffer
+def z_buffer(ray_interactions: list[list[np.ndarray]]) -> np.ndarray:
+    """
+    Compare this distance with the current value in the z-buffer at the corresponding pixel location.
+     If the new distance is smaller (the intersection point is closer to the camera),
+      update the z-buffer with this new distance.
+    :param ray_interactions: a list of interactions between all rays and every object in the scene.
+    :return: the nearest interaction for each ray with any object.
+    """
+    stacked_arrays = np.stack(*ray_interactions)  # @todo: stack list of lists, not list.
+
+    min_z_indices = np.argmin(stacked_arrays[..., 2], axis=0)
+
+    # Generate grid indices for the last two dimensions
+    i, j = np.ogrid[:stacked_arrays.shape[1], :stacked_arrays.shape[2]]
+
+    # Use advanced indexing to select the required entries
+    z_buffered = stacked_arrays[min_z_indices, i, j]
+
+    return z_buffered
+
 
 # def calculate_surface_color(surface: SurfaceAbs, ray: Ray, intersection_point: Vector, light_sources: list[Light]):
 #     total_light = calculate_light_on_point(intersection_point, lights=light_sources)

@@ -4,7 +4,7 @@ from surfaces.SurfaceAbs import SurfaceAbs
 
 class InfinitePlane(SurfaceAbs):
     def __init__(self, normal, offset, material_index):
-        self.material_index = material_index
+        super().__init__(material_index)
         self.normal = np.array(normal) / np.linalg.norm(normal)  # normalize
         self.offset = offset
 
@@ -35,7 +35,7 @@ class InfinitePlane(SurfaceAbs):
         intersection_angle = np.dot(self.normal, ray_direction)
 
         # Ray is parallel to the plane
-        if np.abs(intersection_angle) < 1e-12:
+        if np.abs(intersection_angle) <= 1e-12:
             return None
 
         # Ray lies in the plane
@@ -64,7 +64,7 @@ class InfinitePlane(SurfaceAbs):
         intersection_angles = np.dot(ray_directions, self.normal)
 
         intersection_points = np.dot(ray_sources, self.normal) + self.offset
-        valid_intersection_position = np.abs(intersection_angles) > 1e-12
+        valid_intersection_position = 1e-12 <= np.abs(intersection_angles)
 
         intersections = np.full_like(ray_sources, np.nan)
 
