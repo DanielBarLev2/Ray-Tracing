@@ -5,8 +5,8 @@ from surfaces.SurfaceAbs import SurfaceAbs
 
 
 class Object3D(SurfaceAbs, ABC):
-    def __init__(self, material_index):
-        super().__init__(material_index)
+    def __init__(self, material_index, index):
+        super().__init__(material_index, index)
 
     def __repr__(self):
         return f"{super().__repr__()}"

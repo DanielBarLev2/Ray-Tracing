@@ -4,7 +4,8 @@ from Ray import Ray
 
 
 class SurfaceAbs(ABC):
-    def __init__(self, material_index):
+    def __init__(self, material_index, index):
+        self.index = index
         self.material_index = material_index
 
     def __repr__(self):

@@ -5,7 +5,7 @@ from Ray import Ray
 from PIL import Image
 from Light import Light
 from Camera import Camera
-from BSPNode import BSPNode
+from BSPNode import BSPNode, traverse
 from Material import Material
 from surfaces.Cube import Cube
 from surfaces.Sphere import Sphere
@@ -20,6 +20,7 @@ Z_DIRECTION = np.array([0, 0, 1])
 
 
 def parse_scene_file(file_path):
+    index = 0
     objects_3D = []
     camera = None
     scene_settings = None
@@ -39,13 +40,16 @@ def parse_scene_file(file_path):
                 material = Material(params[:3], params[3:6], params[6:9], params[9], params[10])
                 objects_3D.append(material)
             elif obj_type == "sph":
-                sphere = Sphere(params[:3], params[3], int(params[4]))
+                sphere = Sphere(params[:3], params[3], int(params[4]), index)
+                index += 1
                 objects_3D.append(sphere)
             elif obj_type == "pln":
-                plane = InfinitePlane(params[:3], params[3], int(params[4]))
+                plane = InfinitePlane(params[:3], params[3], int(params[4]), index)
+                index += 1
                 objects_3D.append(plane)
             elif obj_type == "box":
-                cube = Cube(params[:3], params[3], int(params[4]))
+                cube = Cube(params[:3], params[3], int(params[4]), index)
+                index += 1
                 objects_3D.append(cube)
             elif obj_type == "lgt":
                 light = Light(params[:3], params[3:6], params[6], params[7], params[8])
@@ -101,20 +105,32 @@ def main():
     ray_directions = get_ray_vectors(camera, image_width=args.width, image_height=args.height)
 
     # 6.2: Check the intersection of the ray with all surfaces in the scene
+    ray_sources = np.full_like(ray_directions, camera.position)
+
     rays_interactions = []
 
-    rays_intersections_planes = []
+    rays_interactions_planes = []
     for plane in planes:
-        ray_sources = np.full_like(ray_directions, camera.position)
         plane_intersection = plane.intersect_vectorized(ray_sources=ray_sources, ray_directions=ray_directions)
-        rays_intersections_planes.append(plane_intersection)
+        rays_interactions_planes.append(plane_intersection)
 
-    rays_interactions.append(rays_intersections_planes)
+    rays_interactions.append(rays_interactions_planes)
 
-    bsp_space = BSPNode.build_bsp_tree(surfaces=surfaces)
+    rays_interactions_object3d = []
+    for obj in objects:
+        pass
+
+    # bsp_root = BSPNode.build_bsp_tree(surfaces=surfaces)
+    # print(bsp_root)
+    # rays_interactions_object3d = traverse(ray_source=ray_sources,
+    #                                       ray_directions=ray_directions,
+    #                                       bsp_node=bsp_root,
+    #                                       rays_interactions=rays_interactions)
+
+    rays_interactions.append(rays_interactions_object3d)
 
     # 6.3: Find the nearest intersection of the ray. This is the surface that will be seen in the image.
-    hit_rays = z_buffer(ray_interactions=rays_interactions)
+    hit_rays = z_buffer(ray_interactions=rays_interactions)  # ??
 
     # Dummy result
     image_array = np.zeros((args.width, args.height, 3))
@@ -199,4 +215,4 @@ def z_buffer(ray_interactions: list[list[np.ndarray]]) -> np.ndarray:
 
 
 if __name__ == '__main__':
-        main()
+    main()

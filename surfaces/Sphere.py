@@ -4,14 +4,16 @@ import numpy as np
 
 
 class Sphere(Object3D):
-    def __init__(self, position, radius, material_index):
-        super().__init__(material_index)
+    def __init__(self, position, radius, material_index, index):
+        super().__init__(material_index, index)
         self.position = np.array(position)
         self.radius = radius
 
     def __repr__(self):
-        return f"Sphere(position={self.position.tolist()}, radius={self.radius}, material_index={self.material_index})"
-
+        position_formatted = [f"{coord:.4f}" for coord in self.position]
+        return (f"Sphere(position={position_formatted},"
+                f" radius={self.radius:.4f},"
+                f" material_index={self.material_index})")
 
     def transform_to_camera(self, view_matrix: np.ndarray) -> None:
         """

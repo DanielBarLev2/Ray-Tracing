@@ -3,8 +3,8 @@ from surfaces.Object3D import Object3D
 
 
 class Cube(Object3D):
-    def __init__(self, position, scale, material_index):
-        super().__init__(material_index)
+    def __init__(self, position, scale, material_index, index):
+        super().__init__(material_index, index)
         self.position = position
         self.scale = scale
 

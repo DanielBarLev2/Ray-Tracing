@@ -3,8 +3,8 @@ from surfaces.SurfaceAbs import SurfaceAbs
 
 
 class InfinitePlane(SurfaceAbs):
-    def __init__(self, normal, offset, material_index):
-        super().__init__(material_index)
+    def __init__(self, normal, offset, material_index, index):
+        super().__init__(material_index, index)
         self.normal = np.array(normal) / np.linalg.norm(normal)  # normalize
         self.offset = offset
 
