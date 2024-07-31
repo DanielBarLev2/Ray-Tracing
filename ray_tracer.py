@@ -100,7 +100,18 @@ def main():
     ray_vectors = get_ray_vectors(camera, image_width=args.width, image_height=args.height)
 
     # 6.2
-    bsp_space = BSPNode.build_bsp_tree(surfaces=surfaces+planes)
+    # rays_intersections_planes = np.zeros_like(ray_vectors.reshape(args.width * args.height, 3))
+    rays_intersections_planes = np.zeros_like(ray_vectors.reshape(args.width * args.height, 3))
+
+    for index, ray in enumerate(ray_vectors.reshape(args.width * args.height, 3)):
+        for plane in planes:
+            intersection = plane.intersect(ray_source=camera.position, ray_direction=ray)
+            rays_intersections_planes[index] = intersection
+
+    rays_intersections_planes = rays_intersections_planes.reshape(args.width, args.height, 3)
+    r = planes[0].intersect_vectorized(ray_sources=np.full_like(ray_vectors, camera.position), ray_directions=ray_vectors)
+
+    bsp_space = BSPNode.build_bsp_tree(surfaces=surfaces)
 
     # Dummy result
     image_array = np.zeros((500, 500, 3))
@@ -139,27 +150,28 @@ def get_ray_vectors(camera: Camera, image_width: int, image_height: int) -> np.n
 
     return ray_vectors
 
-    def calculate_surface_color(surface: SurfaceAbs, ray: Ray, intersection_point: Vector, light_sources: list[Light]):
-        total_light = calculate_light_on_point(intersection_point, lights=light_sources)
-        ray_tracing(ray)
+# def calculate_surface_color(surface: SurfaceAbs, ray: Ray, intersection_point: Vector, light_sources: list[Light]):
+#     total_light = calculate_light_on_point(intersection_point, lights=light_sources)
+#     ray_tracing(ray)
+#
+# def ray_tracing(initial_ray: Ray):
+#     return None
+#
+# def calculate_light_on_point(point: Vector, lights: list[Light]):
+#     total_light: ColorVector = np.array([0, 0, 0, 0])
+#
+#     def closest_surface(point: Vector, ray: Ray):
+#         return (None, None)
+#
+#     for light_source in lights:
+#         ray: Ray = Ray(ray_source=point, ray_direction=light_source.position - point)
+#         (surface, t) = closest_surface(point, ray)
+#         if surface is None:
+#             total_light += np.append(light_source.color, 1)
+#     total_light = (total_light / total_light[3])[:2]
+#
+#     return total_light
 
-    def ray_tracing(initial_ray: Ray):
-        return None
 
-    def calculate_light_on_point(point: Vector, lights: list[Light]):
-        total_light: ColorVector = np.array([0, 0, 0, 0])
-
-        def closest_surface(point: Vector, ray: Ray):
-            return (None, None)
-
-        for light_source in lights:
-            ray: Ray = Ray(ray_source=point, ray_direction=light_source.position - point)
-            (surface, t) = closest_surface(point, ray)
-            if surface is None:
-                total_light += np.append(light_source.color, 1)
-        total_light = (total_light / total_light[3])[:2]
-
-        return total_light
-
-    if __name__ == '__main__':
+if __name__ == '__main__':
         main()
