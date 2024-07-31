@@ -9,6 +9,10 @@ class Sphere(Object3D):
         self.position = np.array(position)
         self.radius = radius
 
+    def __repr__(self):
+        return f"Sphere(position={self.position.tolist()}, radius={self.radius}, material_index={self.material_index})"
+
+
     def transform_to_camera(self, view_matrix: np.ndarray) -> None:
         """
         Transform the center of the sphere using the view matrix.

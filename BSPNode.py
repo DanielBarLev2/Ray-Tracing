@@ -26,6 +26,9 @@ class BSPNode:
         if len(surfaces) == 1:
             return BSPNode(surfaces=surfaces)
 
+        # depth = 0 : axis = X
+        # depth = 1 : axis = Y
+        # depth = 2 : axis = Z
         axis = depth % 3
         surfaces.sort(key=lambda s: s.position[axis])
         median = len(surfaces) // 2
@@ -38,6 +41,18 @@ class BSPNode:
                        right=BSPNode.build_bsp_tree(right_surfaces, depth + 1),
                        plane=axis)
 
+    def __repr__(self, depth=0):
+        indent = "  " * depth  # Create an indent based on the depth of the node
+        repr_str = f"{indent}BSPNode(plane={self.plane}, surfaces={self.surfaces})\n"
+        if self.left is not None:
+            repr_str += self.left.__repr__(depth + 1)
+        if self.right is not None:
+            repr_str += self.right.__repr__(depth + 1)
+        return repr_str
+
+def traverse(ray_source: np.ndarray, ray_directions: np.ndarray, bsp_node: BSPNode):
+    if bsp_node.plane is None:
+        return
 
 def traverse_bsp_tree(ray: Ray, bsp_node: BSPNode):
     if bsp_node is None:

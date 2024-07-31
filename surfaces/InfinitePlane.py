@@ -8,6 +8,9 @@ class InfinitePlane(SurfaceAbs):
         self.normal = np.array(normal) / np.linalg.norm(normal)  # normalize
         self.offset = offset
 
+    def __repr__(self):
+        return f"{super().__repr__()}, normal={self.normal.tolist()}, offset={self.offset}"
+
     def transform_to_camera(self, view_matrix: np.ndarray):
         """
         Updates the normal vector using the rotation part of the view matrix.

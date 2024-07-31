@@ -8,6 +8,9 @@ class Cube(Object3D):
         self.position = position
         self.scale = scale
 
+    def __repr__(self):
+        return f"Cube(position={self.position.tolist()}, scale={self.scale}, material_index={self.material_index})"
+
     def transform_to_camera(self, view_matrix) -> None:
         """
         Transform the center of the cube using the view matrix.

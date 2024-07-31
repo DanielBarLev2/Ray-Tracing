@@ -8,6 +8,8 @@ class Object3D(SurfaceAbs, ABC):
     def __init__(self, material_index):
         super().__init__(material_index)
 
+    def __repr__(self):
+        return f"{super().__repr__()}"
 
     @staticmethod
     def transform_to_camera_coordinates(surface_coords: np.ndarray, view_matrix: np.ndarray) -> np.ndarray:
