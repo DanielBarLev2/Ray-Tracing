@@ -82,7 +82,7 @@ def main():
 
     # 6.1.1: Discover the location of the pixel on the camera’s screen
     view_matrix = camera.create_view_matrix()
-    # camera.transform_to_camera(view_matrix=view_matrix)
+    camera.transform_to_camera(view_matrix=view_matrix)
 
     planes = []
     surfaces = []
@@ -116,7 +116,7 @@ def main():
     #                                       rays_interactions=rays_interactions)
 
     # 6.3: Find the nearest intersection of the ray. This is the surface that will be seen in the image.
-    hit_rays = calc_ray_hits(ray_interactions=rays_interactions)  # ??
+    # hit_rays = calc_ray_hits(ray_interactions=rays_interactions)  # ??
 
     # Dummy result
     image_array = np.zeros((args.width, args.height, 3))
@@ -155,32 +155,25 @@ def get_ray_vectors(camera: Camera, image_width: int, image_height: int) -> np.n
     return ray_vectors
 
 
-def calc_ray_hits(planes, surfaces, rays_sources, rays_directions) -> list[list[np.ndarray]]:
+def compute_rays_interactions(planes, surfaces, rays_sources, rays_directions) -> tuple[list[list], list]:
     rays_interactions = []
+    index_list = []
 
     rays_interactions_planes = []
     for plane in planes:
         plane_intersection = plane.intersect_vectorized(rays_sources=rays_sources, rays_directions=rays_directions)
         rays_interactions_planes.append(plane_intersection)
+        index_list.append(plane.index)
     rays_interactions.append(rays_interactions_planes)
 
     rays_interactions_surfaces = []
     for surface in surfaces:
-        r = np.zeros_like(rays_directions.reshape(100 * 100, 3))
-        for index, ray in enumerate(rays_directions.reshape(100 * 100, 3)):
-            surface_interaction = surface.intersect(ray_source=rays_sources[0, 0], ray_direction=ray)
-            r[index] = surface_interaction
-
-        rays_interactions_surfaces.append(r.reshape(100, 100, 3))
-
+        surface_intersection = surface.intersect_vectorized(rays_sources=rays_sources, rays_directions=rays_directions)
+        rays_interactions_surfaces.append(surface_intersection)
+        index_list.append(surface.index)
     rays_interactions.append(rays_interactions_surfaces)
 
-    for surface in surfaces:
-        r = np.zeros_like(rays_directions)
-        r = surface.intersect_vectorized(rays_sources=rays_sources, rays_directions=rays_directions)
-
-
-    return rays_interactions
+    return rays_interactions, index_list
 
 
 # @todo: test z-buffer

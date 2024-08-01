@@ -1,4 +1,3 @@
-from Ray import Ray
 from surfaces.Object3D import Object3D
 import numpy as np
 
@@ -25,13 +24,15 @@ class Sphere(Object3D):
     # todo: check again
     def intersect(self, ray_source: np.ndarray, ray_direction: np.ndarray) -> np.ndarray | None:
         """
+        Computes the intersection between ray and the sphere.
         Ray: p_0 + scale * ray_direction
         Sphere: ||p - O||^2 - r^2
         Substitute p with ray and solve for scale:= ||p_0 + scale * ray_direction - O||^2 - r^2
         => (ray_direction * ray_direction) * scale^2 + 2 * ray_direction * (p_0 - O) * scale + (p_0 - O)^2 - r^2 = 0
-        :param ray_source:
-        :param ray_direction:
-        :return:
+        :param ray_source: vector of ray source coordinates
+        :param ray_direction: vector of ray direction coordinates
+        :return: the point in space where intersection between ray and the sphere occurs.
+        If no intersection is found, None is returned.
         """
         ray_direction = ray_direction / (np.linalg.norm(ray_direction))
 
@@ -43,17 +44,14 @@ class Sphere(Object3D):
         c = np.dot(p0_minus_O, p0_minus_O) - self.radius ** 2
 
         discriminant = b ** 2 - 4 * a * c
-
-        # If the discriminant is negative, there is no real solution, ray does not intersect
+        # If the discriminant is negative, ray does not intersect
         if discriminant < 0:
             return None
 
-        # Two solutions for t
         sqrt_discriminant = np.sqrt(discriminant)
         scale1 = (-b - sqrt_discriminant) / (2 * a)
         scale2 = (-b + sqrt_discriminant) / (2 * a)
 
-        # We need to consider the smallest positive t
         # If both are negative, ray intersects sphere behind the source
         if 0 <= scale1 and 0 <= scale2:
             return ray_source + min(scale1, scale2) * ray_direction
@@ -66,18 +64,18 @@ class Sphere(Object3D):
 
     def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray) -> np.ndarray:
         """
-        Calculate the intersection points of multiple rays with a sphere using vectorized operations.
-        Rays are organized in a 100x100 grid, each with a 3D vector.
+        Computes the intersection between multiple rays and the sphere. using vectorized operations.
 
-        :param rays_sources: Numpy array (100, 100, 3) where each entry represents a ray source.
-        :param rays_directions: Numpy array (100, 100, 3) where each entry represents a ray direction.
-        :return: Numpy array (100, 100, 3) of intersection points, with NaNs where no intersection occurs.
+        :param rays_sources: matrix of ray source coordinates
+        :param rays_directions: matrix of ray direction coordinates
+        :return: matrix the of points in space where intersection between ray and the sphere occurs.
+        Entries are None where no intersection occurs.
         """
         rays_directions = rays_directions / np.linalg.norm(rays_directions, axis=2)[:, :, np.newaxis]
 
         # Calculate coefficients for the quadratic formula
-        p0_minus_O = rays_sources - self.position  # Vector from each ray source to the sphere center
-        a = np.sum(rays_directions * rays_directions, axis=2)  # Should be 1.0 if directions are normalized
+        p0_minus_O = rays_sources - self.position
+        a = np.sum(rays_directions * rays_directions, axis=2)
         b = 2 * np.sum(rays_directions * p0_minus_O, axis=2)
         c = np.sum(p0_minus_O * p0_minus_O, axis=2) - self.radius ** 2
 
@@ -86,14 +84,13 @@ class Sphere(Object3D):
         # Initialize intersection points array with NaNs
         intersections = np.full(rays_sources.shape, np.nan)
 
-        # Only proceed where the discriminant is non-negative (real solutions exist)
-        valid = discriminant >= 0
+        # Only proceed where the discriminant is non-negative
+        valid = 0 <= discriminant
 
         sqrt_discriminant = np.sqrt(discriminant[valid])
         a_valid = a[valid]
         b_valid = b[valid]
 
-        # Two possible solutions for scale (t)
         scale1 = (-b_valid - sqrt_discriminant) / (2 * a_valid)
         scale2 = (-b_valid + sqrt_discriminant) / (2 * a_valid)
 
@@ -105,10 +102,11 @@ class Sphere(Object3D):
         # Compute the intersection points for valid rays
         valid_indices = np.where(valid)
         valid_scales_indices = np.where(valid_scale)
+
         selected_scales = scale_min[valid_scales_indices]
         intersections[valid_indices[0][valid_scales_indices], valid_indices[1][valid_scales_indices], :] = \
-            rays_sources[valid_indices[0][valid_scales_indices], valid_indices[1][valid_scales_indices], :] + \
-            selected_scales[:, np.newaxis] * rays_directions[valid_indices[0][valid_scales_indices],
-                                             valid_indices[1][valid_scales_indices], :]
+            (rays_sources[valid_indices[0][valid_scales_indices], valid_indices[1][valid_scales_indices], :]
+             + selected_scales[:, np.newaxis]
+             * rays_directions[valid_indices[0][valid_scales_indices], valid_indices[1][valid_scales_indices], :])
 
         return intersections

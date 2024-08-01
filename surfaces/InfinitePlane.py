@@ -54,13 +54,12 @@ class InfinitePlane(SurfaceAbs):
 
     def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray) -> np.ndarray:
         """
-        Computes the intersections between a batch of rays and the plane using vectorized operations.
-        Each ray is defined by an origin (ray_sources) and a direction (ray_directions).
-        The plane is defined by a normal vector and an offset.
+        Computes the intersection between multiple rays and the plane. using vectorized operations.
 
-        :param rays_sources: array of ray source coordinates, shape (n, 3)
-        :param rays_directions: array of ray direction coordinates, shape (n, 3)
-        :return: An array of intersection points; shape (n, 3). Entries are NaN where no intersection occurs.
+        :param rays_sources: matrix of ray source coordinates
+        :param rays_directions: matrix of ray direction coordinates
+        :return: matrix the of points in space where intersection between ray and the plane occurs.
+        Entries are None where no intersection occurs.
         """
         rays_directions = rays_directions / np.linalg.norm(rays_directions, axis=2)[:, :, np.newaxis]
 
