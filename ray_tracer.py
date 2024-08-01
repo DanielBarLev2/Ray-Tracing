@@ -18,7 +18,6 @@ X_DIRECTION = np.array([1, 0, 0])
 Y_DIRECTION = np.array([0, 1, 0])
 Z_DIRECTION = np.array([0, 0, 1])
 
-
 def parse_scene_file(file_path):
     index = 0
     objects_3D = []
@@ -117,7 +116,7 @@ def main():
     #                                       rays_interactions=rays_interactions)
 
     # 6.3: Find the nearest intersection of the ray. This is the surface that will be seen in the image.
-    hit_rays = z_buffer(ray_interactions=rays_interactions)  # ??
+    hit_rays = calc_ray_hits(ray_interactions=rays_interactions)  # ??
 
     # Dummy result
     image_array = np.zeros((args.width, args.height, 3))
@@ -185,7 +184,7 @@ def calc_ray_hits(planes, surfaces, rays_sources, rays_directions) -> list[list[
 
 
 # @todo: test z-buffer
-def z_buffer(ray_interactions: list[list[np.ndarray]]) -> np.ndarray:
+def calc_ray_hits(ray_interactions: list[list[np.ndarray]]) -> np.ndarray:
     """
     Compare this distance with the current value in the z-buffer at the corresponding pixel location.
      If the new distance is smaller (the intersection point is closer to the camera),
@@ -227,6 +226,7 @@ def z_buffer(ray_interactions: list[list[np.ndarray]]) -> np.ndarray:
 #     total_light = (total_light / total_light[3])[:2]
 #
 #     return total_light
+
 
 
 if __name__ == '__main__':
