@@ -1,12 +1,13 @@
 from surfaces.Object3D import Object3D
+from util import *
 import numpy as np
 
 
 class Sphere(Object3D):
     def __init__(self, position, radius, material_index, index):
         super().__init__(material_index, index)
-        self.position = np.array(position)
-        self.radius = radius
+        self.position: Vector = np.array(position)
+        self.radius: float = radius
 
     def __repr__(self):
         position_formatted = [f"{coord:.4f}" for coord in self.position]
@@ -110,3 +111,6 @@ class Sphere(Object3D):
              * rays_directions[valid_indices[0][valid_scales_indices], valid_indices[1][valid_scales_indices], :])
 
         return intersections
+
+    def calculate_normal(self, point: np.ndarray) -> np.ndarray:
+        return point - self.position
