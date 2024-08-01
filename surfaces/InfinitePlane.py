@@ -20,7 +20,8 @@ class InfinitePlane(SurfaceAbs):
         :return:
         """
         self.normal = np.dot(view_matrix[:3, :3], self.normal)
-        self.offset = self.offset - np.dot(self.normal, view_matrix[:3, 3])
+        self.normal = np.array(self.normal) / np.linalg.norm(self.normal)  # normalize
+        self.offset = -self.offset - np.dot(self.normal, view_matrix[:3, 3])
 
     def intersect(self, ray_source: np.ndarray, ray_direction: np.ndarray) -> np.ndarray | None:
         """
@@ -79,3 +80,6 @@ class InfinitePlane(SurfaceAbs):
                                              + scale[valid_intersection][:, np.newaxis]
                                              * rays_directions[valid_intersection])
         return intersections
+
+    def calculate_normal(self, point: np.ndarray) -> np.ndarray:
+        return self.normal
