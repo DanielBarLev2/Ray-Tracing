@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 import numpy as np
-from Ray import Ray
 
 
 class SurfaceAbs(ABC):
@@ -27,3 +26,7 @@ class SurfaceAbs(ABC):
         pass
 
 
+    @abstractmethod
+    def calculate_normal(self, point: np.ndarray) -> np.ndarray:
+        """ This method must be overridden in subclasses"""
+        pass

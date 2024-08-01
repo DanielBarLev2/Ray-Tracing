@@ -1,6 +1,5 @@
 from abc import ABC
 import numpy as np
-from Ray import Ray
 from surfaces.SurfaceAbs import SurfaceAbs
 
 
