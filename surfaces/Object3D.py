@@ -27,5 +27,6 @@ class Object3D(SurfaceAbs, ABC):
 
         return camera_coords[:3]
 
-    def intersect(self, ray: Ray):
-        pass
+    # def intersect(self, ray_source: np.ndarray, ray_direction: np.ndarray) -> np.ndarray | None:
+    #
+    #     pass

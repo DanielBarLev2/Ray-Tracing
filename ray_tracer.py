@@ -83,7 +83,7 @@ def main():
 
     # 6.1.1: Discover the location of the pixel on the camera’s screen
     view_matrix = camera.create_view_matrix()
-    camera.transform_to_camera(view_matrix=view_matrix)
+    # camera.transform_to_camera(view_matrix=view_matrix)
 
     planes = []
     surfaces = []
@@ -102,23 +102,12 @@ def main():
             light_sources.append(obj)
 
     # 6.1.2: Construct a ray from the camera through that pixel
-    ray_directions = get_ray_vectors(camera, image_width=args.width, image_height=args.height)
+    rays_directions = get_ray_vectors(camera, image_width=args.width, image_height=args.height)
 
     # 6.2: Check the intersection of the ray with all surfaces in the scene
-    ray_sources = np.full_like(ray_directions, camera.position)
+    rays_sources = np.full_like(rays_directions, camera.position)
 
-    rays_interactions = []
-
-    rays_interactions_planes = []
-    for plane in planes:
-        plane_intersection = plane.intersect_vectorized(ray_sources=ray_sources, ray_directions=ray_directions)
-        rays_interactions_planes.append(plane_intersection)
-
-    rays_interactions.append(rays_interactions_planes)
-
-    rays_interactions_object3d = []
-    for obj in objects:
-        pass
+    rays_interactions = compute_rays_interactions(planes, surfaces, rays_sources, rays_directions)
 
     # bsp_root = BSPNode.build_bsp_tree(surfaces=surfaces)
     # print(bsp_root)
@@ -126,8 +115,6 @@ def main():
     #                                       ray_directions=ray_directions,
     #                                       bsp_node=bsp_root,
     #                                       rays_interactions=rays_interactions)
-
-    rays_interactions.append(rays_interactions_object3d)
 
     # 6.3: Find the nearest intersection of the ray. This is the surface that will be seen in the image.
     hit_rays = z_buffer(ray_interactions=rays_interactions)  # ??
@@ -167,6 +154,34 @@ def get_ray_vectors(camera: Camera, image_width: int, image_height: int) -> np.n
             + (jj[:, :, np.newaxis] * w_granularity * X_DIRECTION))
 
     return ray_vectors
+
+
+def calc_ray_hits(planes, surfaces, rays_sources, rays_directions) -> list[list[np.ndarray]]:
+    rays_interactions = []
+
+    rays_interactions_planes = []
+    for plane in planes:
+        plane_intersection = plane.intersect_vectorized(rays_sources=rays_sources, rays_directions=rays_directions)
+        rays_interactions_planes.append(plane_intersection)
+    rays_interactions.append(rays_interactions_planes)
+
+    rays_interactions_surfaces = []
+    for surface in surfaces:
+        r = np.zeros_like(rays_directions.reshape(100 * 100, 3))
+        for index, ray in enumerate(rays_directions.reshape(100 * 100, 3)):
+            surface_interaction = surface.intersect(ray_source=rays_sources[0, 0], ray_direction=ray)
+            r[index] = surface_interaction
+
+        rays_interactions_surfaces.append(r.reshape(100, 100, 3))
+
+    rays_interactions.append(rays_interactions_surfaces)
+
+    for surface in surfaces:
+        r = np.zeros_like(rays_directions)
+        r = surface.intersect_vectorized(rays_sources=rays_sources, rays_directions=rays_directions)
+
+
+    return rays_interactions
 
 
 # @todo: test z-buffer

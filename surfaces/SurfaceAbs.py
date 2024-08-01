@@ -17,7 +17,12 @@ class SurfaceAbs(ABC):
         pass
 
     @abstractmethod
-    def intersect(self, rays_source: np.ndarray, ray_vectors: np.ndarray) -> np.ndarray:
+    def intersect(self, ray_source: np.ndarray, ray_direction: np.ndarray) -> np.ndarray:
+        """ This method must be overridden in subclasses"""
+        pass
+
+    @abstractmethod
+    def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray) -> np.ndarray:
         """ This method must be overridden in subclasses"""
         pass
 

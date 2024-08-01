@@ -52,31 +52,31 @@ class InfinitePlane(SurfaceAbs):
         else:
             return None
 
-    def intersect_vectorized(self, ray_sources: np.ndarray, ray_directions: np.ndarray) -> np.ndarray:
+    def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray) -> np.ndarray:
         """
         Computes the intersections between a batch of rays and the plane using vectorized operations.
         Each ray is defined by an origin (ray_sources) and a direction (ray_directions).
         The plane is defined by a normal vector and an offset.
 
-        :param ray_sources: array of ray source coordinates, shape (n, 3)
-        :param ray_directions: array of ray direction coordinates, shape (n, 3)
+        :param rays_sources: array of ray source coordinates, shape (n, 3)
+        :param rays_directions: array of ray direction coordinates, shape (n, 3)
         :return: An array of intersection points; shape (n, 3). Entries are NaN where no intersection occurs.
         """
-        ray_directions = ray_directions /np.linalg.norm(ray_directions, axis=2)[:, :, np.newaxis]
+        rays_directions = rays_directions / np.linalg.norm(rays_directions, axis=2)[:, :, np.newaxis]
 
-        intersection_angles = np.dot(ray_directions, self.normal)
+        intersection_angles = np.dot(rays_directions, self.normal)
 
-        intersection_points = np.dot(ray_sources, self.normal) + self.offset
+        intersection_points = np.dot(rays_sources, self.normal) + self.offset
         valid_intersection_position = 1e-12 <= np.abs(intersection_angles)
 
-        intersections = np.full_like(ray_sources, np.nan)
+        intersections = np.full_like(rays_sources, np.nan)
 
         # Where valid, compute the scale
         scale = np.where(valid_intersection_position, - (intersection_points / intersection_angles), np.nan)
 
         # Calculate intersection points where scale is non-negative
         valid_intersection = valid_intersection_position & (0 <= scale)
-        intersections[valid_intersection] = (ray_sources[valid_intersection]
+        intersections[valid_intersection] = (rays_sources[valid_intersection]
                                              + scale[valid_intersection][:, np.newaxis]
-                                             * ray_directions[valid_intersection])
+                                             * rays_directions[valid_intersection])
         return intersections

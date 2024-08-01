@@ -1,3 +1,5 @@
+import numpy as np
+
 from Ray import Ray
 from surfaces.Object3D import Object3D
 
@@ -19,5 +21,8 @@ class Cube(Object3D):
         """
         self.position = super().transform_to_camera_coordinates(self.position, view_matrix)
 
-    def intersect(self, ray: Ray):
+    def intersect(self, ray_source: np.ndarray, ray_direction: np.ndarray) -> np.ndarray:
+        pass
+
+    def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray) -> np.ndarray:
         pass
