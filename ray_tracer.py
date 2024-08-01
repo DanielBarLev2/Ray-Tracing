@@ -1,7 +1,6 @@
 import argparse
 import numpy as np
 from util import *
-from Ray import Ray
 from PIL import Image
 from Light import Light
 from Camera import Camera
@@ -14,9 +13,6 @@ from SceneSettings import SceneSettings
 from surfaces.SurfaceAbs import SurfaceAbs
 from surfaces.InfinitePlane import InfinitePlane
 
-X_DIRECTION = np.array([1, 0, 0])
-Y_DIRECTION = np.array([0, 1, 0])
-Z_DIRECTION = np.array([0, 0, 1])
 
 def parse_scene_file(file_path):
     index = 0
@@ -51,7 +47,8 @@ def parse_scene_file(file_path):
                 index += 1
                 objects_3D.append(cube)
             elif obj_type == "lgt":
-                light = Light(params[:3], params[3:6], params[6], params[7], params[8])
+                light = Light(params[:3], params[3:6], params[6], params[7], params[8], index)
+                index += 1
                 objects_3D.append(light)
             else:
                 raise ValueError("Unknown object type: {}".format(obj_type))
@@ -84,15 +81,10 @@ def main():
     view_matrix = camera.create_view_matrix()
     camera.transform_to_camera(view_matrix=view_matrix)
 
-    planes = []
     surfaces = []
     light_sources = []
     for obj in objects:
-        if isinstance(obj, InfinitePlane):
-            obj.transform_to_camera(view_matrix=view_matrix)
-            planes.append(obj)
-
-        elif isinstance(obj, Object3D):
+        if isinstance(obj, SurfaceAbs):
             obj.transform_to_camera(view_matrix=view_matrix)
             surfaces.append(obj)
 
@@ -106,7 +98,7 @@ def main():
     # 6.2: Check the intersection of the ray with all surfaces in the scene
     rays_sources = np.full_like(rays_directions, camera.position)
 
-    rays_interactions = compute_rays_interactions(planes, surfaces, rays_sources, rays_directions)
+    rays_interactions, index_list = compute_rays_interactions(surfaces, rays_sources, rays_directions)
 
     # bsp_root = BSPNode.build_bsp_tree(surfaces=surfaces)
     # print(bsp_root)
@@ -116,9 +108,9 @@ def main():
     #                                       rays_interactions=rays_interactions)
 
     # 6.3: Find the nearest intersection of the ray. This is the surface that will be seen in the image.
-    # hit_rays = calc_ray_hits(ray_interactions=rays_interactions)  # ??
+    surfaces = [o for o in objects if isinstance(o, SurfaceAbs)]
 
-    # Dummy result
+    ray_tracing(rays_sources, rays_directions, surfaces, scene_settings)
     image_array = np.zeros((args.width, args.height, 3))
 
     # Save the output image
@@ -155,71 +147,124 @@ def get_ray_vectors(camera: Camera, image_width: int, image_height: int) -> np.n
     return ray_vectors
 
 
-def compute_rays_interactions(planes, surfaces, rays_sources, rays_directions) -> tuple[list[list], list]:
+def compute_rays_interactions(surfaces, rays_sources, rays_directions) -> tuple[list[list], list]:
     rays_interactions = []
     index_list = []
 
-    rays_interactions_planes = []
-    for plane in planes:
-        plane_intersection = plane.intersect_vectorized(rays_sources=rays_sources, rays_directions=rays_directions)
-        rays_interactions_planes.append(plane_intersection)
-        index_list.append(plane.index)
-    rays_interactions.append(rays_interactions_planes)
-
-    rays_interactions_surfaces = []
     for surface in surfaces:
         surface_intersection = surface.intersect_vectorized(rays_sources=rays_sources, rays_directions=rays_directions)
-        rays_interactions_surfaces.append(surface_intersection)
+        rays_interactions.append(surface_intersection)
         index_list.append(surface.index)
-    rays_interactions.append(rays_interactions_surfaces)
 
     return rays_interactions, index_list
 
 
-# @todo: test z-buffer
-def calc_ray_hits(ray_interactions: list[list[np.ndarray]]) -> np.ndarray:
+def calc_ray_hits(ray_interactions: list[list[np.ndarray]], indices: list[int]) -> tuple[np.ndarray, np.ndarray]:
     """
     Compare this distance with the current value in the z-buffer at the corresponding pixel location.
      If the new distance is smaller (the intersection point is closer to the camera),
       update the z-buffer with this new distance.
     :param ray_interactions: a list of interactions between all rays and every object in the scene.
+    :param indices: a list of indices, same size as ray_interactions, for each interaction signify it's object.
     :return: the nearest interaction for each ray with any object.
     """
-    stacked_arrays = np.stack(*ray_interactions)  # @todo: stack list of lists, not list.
 
-    min_z_indices = np.argmin(stacked_arrays[..., 2], axis=0)
 
+    "************************************* list is not nested *********************************************"
+
+    flat = [arr for sublist in ray_interactions for arr in sublist]
+    stacked_arrays = np.stack(flat)  # @todo: stack list of lists, not list.
+
+    z_values = stacked_arrays[..., 2]
+
+    # Create a mask to identify NaN values
+    nan_mask = np.isnan(z_values)
+
+    # Replace NaNs with a large number to effectively ignore them
+    # For the purpose of comparison, we use a very large number
+    z_values_with_large_number = np.where(nan_mask, np.inf, z_values)
+
+    # Compute the indices of the minimum values, ignoring NaNs
+    min_z_indices = np.argmin(z_values_with_large_number, axis=0)
     # Generate grid indices for the last two dimensions
     i, j = np.ogrid[:stacked_arrays.shape[1], :stacked_arrays.shape[2]]
 
     # Use advanced indexing to select the required entries
     z_buffered = stacked_arrays[min_z_indices, i, j]
 
-    return z_buffered
+    # Create a numpy array from indices list
+    indices_array = np.array(indices)
+
+    # Use min_z_indices to get the corresponding object IDs
+    object_ids = indices_array[min_z_indices]
+
+    return z_buffered, object_ids
 
 
-# def calculate_surface_color(surface: SurfaceAbs, ray: Ray, intersection_point: Vector, light_sources: list[Light]):
-#     total_light = calculate_light_on_point(intersection_point, lights=light_sources)
-#     ray_tracing(ray)
-#
-# def ray_tracing(initial_ray: Ray):
-#     return None
-#
-# def calculate_light_on_point(point: Vector, lights: list[Light]):
-#     total_light: ColorVector = np.array([0, 0, 0, 0])
-#
-#     def closest_surface(point: Vector, ray: Ray):
-#         return (None, None)
-#
-#     for light_source in lights:
-#         ray: Ray = Ray(ray_source=point, ray_direction=light_source.position - point)
-#         (surface, t) = closest_surface(point, ray)
-#         if surface is None:
-#             total_light += np.append(light_source.color, 1)
-#     total_light = (total_light / total_light[3])[:2]
-#
-#     return total_light
+def ray_tracing(rays_sources: Matrix[Vector], rays_directions: Matrix[Vector], surfaces: list[SurfaceAbs],
+                scene: SceneSettings):
+    """
+       Performs ray tracing for a given set of initial rays, calculating interactions with objects,
+       and computing both reflected and go-through ray directions.
+       This function is designed to handle the interaction of rays with infinite planes, spheres and cubes.
 
+       :param rays_sources: A 3D array of ray sources (shape: [N, N, 3]). Each entry contains the origin of a ray.
+       :param rays_directions: A 3D array of ray directions (shape: [N, N, 3]). Each entry contains the direction vector of a ray.
+       :param surfaces: A list of 3d objects that might be hit by rays. These objects are used to fetch normals and calculate reflections.
+       :param scene: A `SceneSettings` object containing settings for the scene, such as lighting, camera position, etc.
+
+       :return:A 3D array representing the image result
+           The function does not return any value. It is intended to perform computations and updates related to ray tracing.
+           """
+
+    rays_interactions, interaction_indices = compute_rays_interactions(surfaces=surfaces,
+                                                                       rays_sources=rays_sources,
+                                                                       rays_directions=rays_directions)
+
+    hits, obj_indices = calc_ray_hits(ray_interactions=rays_interactions, indices=interaction_indices)
+
+    # Calculate reflected, go_through rays - todo: add go_through rays
+    reflection_rays_directions = calc_reflection_rays(rays_directions, hits, obj_indices, surfaces)
+
+
+    # todo continue function
+    return
+
+
+def calc_reflection_rays(inner_rays_directions: np.ndarray, hits: np.ndarray,
+                         hits_object_indices: np.ndarray, objects: list) -> np.ndarray:
+    """
+    Calculate the reflected ray directions for multiple rays given their hit locations and corresponding normals.
+
+    :param inner_rays_directions: A 3D array of ray directions (shape: [N, N, 3]).
+    :param hits: A 3D array of hit locations (shape: [N, N, 3]).
+    :param hits_object_indices: A 2D array of indices to fetch objects (shape: [N, N]).
+    :param objects: A list of objects, each with a method `get_normal_at(hit_location)` to calculate normals.
+    :return: A 3D array of reflected ray directions (shape: [N, N, 3]).
+    """
+    N, M, _ = inner_rays_directions.shape
+
+    # Create an empty array to store normals for each hit location
+    normals = np.zeros((N, M, 3))
+
+    # Vectorized fetching of normals
+    for idx in np.unique(hits_object_indices):
+        obj: SurfaceAbs = objects[idx]
+        mask = (hits_object_indices == idx)
+        hit_locations = hits[mask]
+        normals[mask] = np.array([obj.calculate_normal(loc) for loc in hit_locations])
+
+    # Normalize normals
+    norms = np.linalg.norm(normals, axis=-1, keepdims=True)
+    normals = normals / norms
+
+    # Compute dot products
+    dot_products = np.sum(inner_rays_directions * normals, axis=-1, keepdims=True)
+
+    # Compute reflected rays
+    reflected_rays = inner_rays_directions - 2 * dot_products * normals
+
+    return reflected_rays
 
 
 if __name__ == '__main__':

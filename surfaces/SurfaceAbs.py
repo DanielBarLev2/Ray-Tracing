@@ -25,7 +25,6 @@ class SurfaceAbs(ABC):
         """ This method must be overridden in subclasses"""
         pass
 
-
     @abstractmethod
     def calculate_normal(self, point: np.ndarray) -> np.ndarray:
         """ This method must be overridden in subclasses"""
