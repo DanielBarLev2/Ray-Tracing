@@ -1,8 +1,5 @@
 import numpy as np
 
-from Ray import Ray
-
-
 class BSPNode:
     def __init__(self, surfaces, left=None, right=None, plane=None, cut=None):
         self.surfaces = surfaces
@@ -92,7 +89,7 @@ def traverse(ray_source: np.ndarray, ray_directions: np.ndarray, bsp_node: BSPNo
     return rays_interactions
 
 
-def traverse_bsp_tree(ray: Ray, bsp_node: BSPNode):
+def traverse_bsp_tree(ray: np.ndarray, bsp_node: BSPNode):
     if bsp_node is None:
         return []
 
