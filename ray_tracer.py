@@ -14,9 +14,6 @@ from SceneSettings import SceneSettings
 from surfaces.SurfaceAbs import SurfaceAbs
 from surfaces.InfinitePlane import InfinitePlane
 
-X_DIRECTION = np.array([1, 0, 0])
-Y_DIRECTION = np.array([0, 1, 0])
-Z_DIRECTION = np.array([0, 0, 1])
 
 def parse_scene_file(file_path):
     index = 0
@@ -84,13 +81,12 @@ def main():
     view_matrix = camera.create_view_matrix()
     camera.transform_to_camera(view_matrix=view_matrix)
 
-    planes = []
     surfaces = []
     light_sources = []
     for obj in objects:
         if isinstance(obj, InfinitePlane):
             obj.transform_to_camera(view_matrix=view_matrix)
-            planes.append(obj)
+            surfaces.append(obj)
 
         elif isinstance(obj, Object3D):
             obj.transform_to_camera(view_matrix=view_matrix)
@@ -106,7 +102,7 @@ def main():
     # 6.2: Check the intersection of the ray with all surfaces in the scene
     rays_sources = np.full_like(rays_directions, camera.position)
 
-    rays_interactions = compute_rays_interactions(planes, surfaces, rays_sources, rays_directions)
+    rays_interactions, index_list = compute_rays_interactions(surfaces, rays_sources, rays_directions)
 
     # bsp_root = BSPNode.build_bsp_tree(surfaces=surfaces)
     # print(bsp_root)
@@ -155,23 +151,14 @@ def get_ray_vectors(camera: Camera, image_width: int, image_height: int) -> np.n
     return ray_vectors
 
 
-def compute_rays_interactions(planes, surfaces, rays_sources, rays_directions) -> tuple[list[list], list]:
+def compute_rays_interactions(surfaces, rays_sources, rays_directions) -> tuple[list[list], list]:
     rays_interactions = []
     index_list = []
 
-    rays_interactions_planes = []
-    for plane in planes:
-        plane_intersection = plane.intersect_vectorized(rays_sources=rays_sources, rays_directions=rays_directions)
-        rays_interactions_planes.append(plane_intersection)
-        index_list.append(plane.index)
-    rays_interactions.append(rays_interactions_planes)
-
-    rays_interactions_surfaces = []
     for surface in surfaces:
         surface_intersection = surface.intersect_vectorized(rays_sources=rays_sources, rays_directions=rays_directions)
-        rays_interactions_surfaces.append(surface_intersection)
+        rays_interactions.append(surface_intersection)
         index_list.append(surface.index)
-    rays_interactions.append(rays_interactions_surfaces)
 
     return rays_interactions, index_list
 
@@ -219,7 +206,6 @@ def calc_ray_hits(ray_interactions: list[list[np.ndarray]]) -> np.ndarray:
 #     total_light = (total_light / total_light[3])[:2]
 #
 #     return total_light
-
 
 
 if __name__ == '__main__':

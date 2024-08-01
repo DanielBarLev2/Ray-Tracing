@@ -21,7 +21,6 @@ class Sphere(Object3D):
         """
         self.position = super().transform_to_camera_coordinates(self.position, view_matrix)
 
-    # todo: check again
     def intersect(self, ray_source: np.ndarray, ray_direction: np.ndarray) -> np.ndarray | None:
         """
         Computes the intersection between ray and the sphere.
@@ -108,5 +107,4 @@ class Sphere(Object3D):
             (rays_sources[valid_indices[0][valid_scales_indices], valid_indices[1][valid_scales_indices], :]
              + selected_scales[:, np.newaxis]
              * rays_directions[valid_indices[0][valid_scales_indices], valid_indices[1][valid_scales_indices], :])
-
         return intersections

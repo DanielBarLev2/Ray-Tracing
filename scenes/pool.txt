@@ -15,8 +15,10 @@ mtl		0.3	0.8	0	0	0	0	0	0	0	1	0
 # Plane:	nx	ny	nz	offset	mat_idx
 pln		0	1	0	-1	7
 
+# Box:
+box -2	0	0	1	1
+
 # Spheres:	cx   	cy   	cz  	radius 	mat_idx
-sph		-2	0	0	1	1
 sph		0	0	0	1	2
 sph		2	0	0	1	3
 sph		-1	0	-2	1	4

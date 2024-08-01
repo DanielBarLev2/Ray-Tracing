@@ -31,11 +31,88 @@ class Cube(Object3D):
         self.forward = super().transform_to_camera_coordinates(self.forward, view_matrix)
         self.backward = super().transform_to_camera_coordinates(self.backward, view_matrix)
 
-    def intersect(self, ray_source: np.ndarray, ray_direction: np.ndarray) -> np.ndarray:
-        pass
+    def intersect(self, ray_source: np.ndarray, ray_direction: np.ndarray) -> np.ndarray | None:
+        """
+        Computes the intersection between a ray and the cube's faces.
+        Ray: p_0 + t * ray_direction
+        Plane: n * (p - p_face) = 0
+        Substitute p with the ray equation and solve for t:
+        n * ((p_0 + t * ray_direction) - p_face) = 0
+        => n * (p_0 - p_face) + t * (n * ray_direction) = 0
+        Solve for t: - (n * (p_0 - p_face)) / (n * ray_direction)
+        :param ray_source: vector of ray source coordinates
+        :param ray_direction: vector of ray direction coordinates
+        :return: the point in space where intersection between ray and the cube occurs.
+        If no intersection is found, None is returned.
+        """
+        ray_direction_normalized = ray_direction / np.linalg.norm(ray_direction)
+        normals = [self.right - self.left, self.up - self.down, self.forward - self.backward]
+        normals = [n / np.linalg.norm(n) for n in normals]
+
+        intersects = []
+        for center, normal in zip([self.right, self.left, self.up, self.down, self.forward, self.backward], normals):
+            d = np.dot(normal, ray_direction_normalized)
+            if np.abs(d) < 1e-12:
+                continue
+
+            t = np.dot(normal, center - ray_source) / d
+            if t < 0:
+                # Intersection behind the ray source
+                continue
+
+            intersection = ray_source + t * ray_direction_normalized
+            # Check if the intersection point is within the cube face bounds
+            if np.all(np.abs(intersection - self.position) <= self.scale / 2):
+                intersects.append(intersection)
+
+        if intersects:
+            # Return the closest intersection point
+            distances = [np.linalg.norm(p - ray_source) for p in intersects]
+            return intersects[np.argmin(distances)]
+
+        return None
 
     def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray) -> np.ndarray:
-        pass
+        """
+        Computes the intersection between multiple rays and the box. using vectorized operations.
+        :param rays_sources: matrix of ray source coordinates
+        :param rays_directions: matrix of ray direction coordinates
+        :return: matrix the of points in space where intersection between ray and the box occurs.
+        Entries are None where no intersection occurs.
+        """
+        ray_directions_normalized = rays_directions / np.linalg.norm(rays_directions, axis=-1, keepdims=True)
+        normals = np.array([self.right - self.left, self.up - self.down, self.forward - self.backward])
+        normals = normals / np.linalg.norm(normals, axis=1, keepdims=True)  # Normalize normals
+
+        # Compute plane constants (for each face)
+        d_values = np.dot(normals, self.position)
+        # Compute the dot products between each ray direction and each normal
+        d_normals = np.einsum('ijk,kl->ijl', ray_directions_normalized, normals.T)
+
+        # Avoid division by zero and compute intersections
+        avoid_div_zero = 1e-6 < np.abs(d_normals)
+        t_values = (d_values - np.einsum('ijk,kl->ijl', rays_sources, normals.T)) / d_normals
+        valid_t = (t_values > 0) & avoid_div_zero
+
+        # Calculate intersection points
+        intersections = rays_sources[..., np.newaxis, :] + t_values[..., np.newaxis] * ray_directions_normalized[...,
+                                                                                       np.newaxis, :]
+
+        # Check bounds for each intersection
+        inside_bounds = np.all((intersections >= (self.position - self.scale / 2)) &
+                               (intersections <= (self.position + self.scale / 2)), axis=-1)
+
+        # Find valid intersections
+        valid_intersections = valid_t & inside_bounds
+        # Choose the nearest valid intersection for each ray and face
+        nearest_scalar = np.where(valid_intersections, t_values, np.inf).min(axis=-1)
+        nearest_intersection = rays_sources + nearest_scalar[..., np.newaxis] * ray_directions_normalized
+
+        # Replace non-intersecting results with NaN or another identifier
+        no_intersection = np.isinf(nearest_scalar)
+        nearest_intersection[no_intersection] = np.nan
+
+        return nearest_intersection
 
     def calculate_normal(self, point: np.ndarray) -> np.ndarray:
         """
