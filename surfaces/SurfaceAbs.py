@@ -30,5 +30,39 @@ class SurfaceAbs(ABC):
         """ This method must be overridden in subclasses"""
         pass
 
+    @abstractmethod
+    def calculate_normals(self, rays_interactions: np.ndarray) -> np.ndarray:
+        """ This method must be overridden in subclasses"""
+        pass
+
     def get_material_index(self):
         return self.material_index - 1  # original indices start from 1
+
+
+def get_surfaces_normals(surfaces: list, surfaces_indices: np.ndarray, ray_hits: np.ndarray) -> np.ndarray:
+
+    normals = np.zeros_like(ray_hits)
+
+    for idx in np.unique(surfaces_indices):
+        if idx == -1:  # todo: bg - handle this case.
+            continue
+        surface = surfaces[idx]
+        mask = (surfaces_indices == idx)
+        rays_interactions_with_surface = ray_hits[mask]
+        normals[mask] = surface.calculate_normals(rays_interactions_with_surface)
+
+    return normals
+
+
+def get_surfaces_material_indies(surfaces: list, surfaces_indices: np.ndarray) -> np.ndarray:
+
+    material_indies = np.zeros_like(surfaces_indices)
+
+    for idx in np.unique(surfaces_indices):
+        if idx == -1:  # todo: bg - handle this case.
+            continue
+        surface = surfaces[idx]
+        mask = (surfaces_indices == idx)
+        material_indies[mask] = surface.get_material_index()
+
+    return material_indies
