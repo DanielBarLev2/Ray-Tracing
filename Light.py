@@ -90,3 +90,56 @@ def get_light_base_colors(lights: list[Light],
     light_specular = np.clip(light_specular, a_min=None, a_max=1)
 
     return light_color, light_specular
+
+
+def compute_specular_colors(surfaces_specular_color: Matrix,
+                            surfaces_phong_coefficient: Matrix,
+                            surfaces_to_lights_directions: np.ndarray,
+                            viewer_directions: Matrix,
+                            surface_normals: Matrix,
+                            light_specular_intensity: np.ndarray):
+    """
+    Specular color formula: Sum { Ks * (Rm * V)^α * Ims } for m in lights
+    Ks is specular reflection constant, the ratio of reflection of the specular term of incoming light
+    Lm is the direction vector from the point on the surface toward each light source
+    Rm is the direction of the reflected ray of light at this point on the surface
+    V is the direction pointing towards the viewer (such as a virtual camera).
+    α is shininess constant, which is larger for surfaces that are smoother and more mirror-like.
+       When this constant is large the specular highlight is small.
+    Ims is the light specular intensity"""
+
+    Ks = surfaces_specular_color
+    Lm = surfaces_to_lights_directions
+    Rm = compute_reflection_rays(lights_rays_directions=Lm, surface_normals=surface_normals)
+
+    V = viewer_directions
+    alpha = surfaces_phong_coefficient[..., np.newaxis]
+    Ims = light_specular_intensity
+
+    Rm_dot_V = np.sum(Rm * V, axis=-1, keepdims=True)
+
+    specular_colors = np.sum(Ks * (Rm_dot_V ** alpha) * Ims, axis=0)
+
+    specular_colors = np.nan_to_num(specular_colors, nan=0.0)
+
+    return specular_colors
+
+
+def compute_reflection_rays(lights_rays_directions: np.ndarray, surface_normals: np.ndarray) -> np.ndarray:
+    """
+    Calculate the reflected ray directions for multiple rays given their hit locations and corresponding normals.
+    important: reflection_rays is from_shooting_point_to_surfaces iff rays_directions is from_shooting_point_to_surfaces
+                i.e. incoming rays -> incoming reflection, outgoing rays -> outgoing reflection
+
+    :param lights_rays_directions: A 4D array of ray directions (shape: [L, N, N, 3]).
+    :param surface_normals: A 3D array of the surface normals on ray impact point (shape: [N, N, 3]).
+    :return: A 3D array of reflected ray directions (shape: [N, N, 3]).
+    """
+    norms = np.linalg.norm(surface_normals, axis=-1, keepdims=True)
+    surface_normals = surface_normals / (norms + EPSILON)
+
+    dot_products = np.sum(lights_rays_directions * surface_normals, axis=-1, keepdims=True)
+
+    reflected_rays = 2 * dot_products * surface_normals - lights_rays_directions
+
+    return reflected_rays
