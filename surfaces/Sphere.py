@@ -111,4 +111,5 @@ class Sphere(Object3D):
         return intersections
 
     def calculate_normal(self, point: np.ndarray) -> np.ndarray:
-        return point - self.position
+        direction = (point - self.position)
+        return direction / np.linalg.norm(direction)
