@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-import numpy as np
+from util import *
 
 
 class SurfaceAbs(ABC):
@@ -29,3 +29,6 @@ class SurfaceAbs(ABC):
     def calculate_normal(self, point: np.ndarray) -> np.ndarray:
         """ This method must be overridden in subclasses"""
         pass
+
+    def get_material_index(self):
+        return self.material_index - 1  # original indices start from 1
