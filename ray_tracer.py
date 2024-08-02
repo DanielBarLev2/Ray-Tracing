@@ -232,10 +232,6 @@ def ray_tracing(rays_sources: Matrix[Vector], rays_directions: Matrix[Vector], s
        :return:A 3D array representing the image result
            The function does not return any value. It is intended to perform computations and updates related to ray tracing.
            """
-    # todo: decide stop condition
-    if scene.max_recursions == 0:
-        return np.full_like(rays_sources, scene.background_color)
-
     recursion_scene = SceneSettings(scene.background_color, scene.root_number_shadow_rays, scene.max_recursions - 1)
 
     rays_interactions, interaction_indices = compute_rays_interactions(surfaces=surfaces,
@@ -251,35 +247,40 @@ def ray_tracing(rays_sources: Matrix[Vector], rays_directions: Matrix[Vector], s
                                            res_shape=obj_indices.shape).astype(dtype=int)
 
     material_colors = get_materials_base_colors(materials, material_indices)
-    diffusive_colors, base_specular_colors, reflective_colors, phong = material_colors
+    diffusive_colors, base_specular_colors, phong, reflective_colors, transparency_values = material_colors
 
-    lights_directions = calc_light_rays(hits, lights)
-    lights_colors, lights_specular_intensities = get_lights_base_colors(lights, lights_directions, surfaces, hits)
+    surfaces_to_lights_directions = calc_light_rays(hits, lights)
+    light_color, light_specular_intensity = get_light_base_colors(lights, surfaces_to_lights_directions, surfaces, hits)
 
     specular_colors = calculate_specular_colors(surfaces_specular_color=base_specular_colors,
                                                 surfaces_phong_coefficient=phong,
-                                                lights_directions=lights_directions,
+                                                surfaces_to_lights_directions=surfaces_to_lights_directions,
                                                 viewer_directions=-rays_directions,
                                                 surface_normals=surfaces_normals,
-                                                lights=lights, lights_specular_intensities=lights_specular_intensities)
+                                                lights=lights, light_specular_intensity=light_specular_intensity)
 
-    transparency_values = np.zeros_like(hits)
-    # transparency_values = apply_object_method(hits, obj_indices, "get_transparency", surfaces)
+    # transparency_values = np.zeros_like(hits)
     non_transparency_values = np.ones_like(hits) - transparency_values
 
-    base_colors = ((diffusive_colors + specular_colors) * np.mean(lights_colors, axis=0)) * non_transparency_values
+    base_colors = (diffusive_colors + specular_colors) * light_color * non_transparency_values
 
-    go_through_colors = np.zeros_like(hits)
-    # go_through_rays_directions = rays_directions
-    # go_through_colors = ray_tracing(hits,go_through_rays_directions,surfaces,materials,recursion_scene)
-    back_colors = transparency_values * go_through_colors
+    go_through_rays_directions = rays_directions
+    if scene.max_recursions > 0:
+        go_through_colors = ray_tracing(hits, go_through_rays_directions, surfaces, materials, lights, recursion_scene)
+    else:
+        go_through_colors = np.zeros_like(diffusive_colors)
+    back_colors = go_through_colors * transparency_values
 
-    reflection = np.zeros_like(hits)
-    # reflection_rays_directions = calc_reflection_rays(rays_directions, surfaces_normals)
-    # reflection = ray_tracing(hits, reflection_rays_directions, surfaces, materials, lights, recursion_scene)
-    # reflection *= reflective_colors
+    reflection_rays_directions = calc_reflection_rays(-rays_directions, surfaces_normals)
+    if scene.max_recursions > 0:
+        reflection = ray_tracing(hits, reflection_rays_directions, surfaces, materials, lights, recursion_scene)
+    else:
+        reflection = np.zeros_like(diffusive_colors)
+    reflection *= reflective_colors
 
     image_colors = (back_colors + base_colors + reflection)
+    image_colors[image_colors > 1] = 1
+    # image_colors = image_colors/np.max(image_colors)
     return image_colors
 
 
@@ -290,42 +291,48 @@ def get_materials_base_colors(materials: list[Material], material_indices: Matri
 
     surfaces_specular_colors = apply_object_method(objects=materials, indices_matrix=material_indices,
                                                    method_name="get_specular", res_shape=res_shape)
+    phong = apply_object_method(objects=materials, indices_matrix=material_indices,
+                                method_name="get_shininess", res_shape=material_indices.shape)
 
     reflective_colors = apply_object_method(objects=materials, indices_matrix=material_indices,
                                             method_name="get_reflective", res_shape=res_shape)
 
-    phong = apply_object_method(objects=materials, indices_matrix=material_indices,
-                                method_name="get_shininess", res_shape=material_indices.shape)
+    transparency_values = apply_object_method(objects=materials, indices_matrix=material_indices,
+                                              method_name="get_transparency", res_shape=res_shape)
 
-    return diffusive_colors, surfaces_specular_colors, reflective_colors, phong
+    return diffusive_colors, surfaces_specular_colors, phong, reflective_colors, transparency_values
 
 
-def get_lights_base_colors(lights: list[Light], light_directions: list[Matrix[Vector]], surfaces: list[SurfaceAbs],
-                           hits: Matrix[Vector]):
-    lights_colors = []
-    lights_specular = []
+def get_light_base_colors(lights: list[Light], light_directions: list[Matrix[Vector]], surfaces: list[SurfaceAbs],
+                          hits: Matrix[Vector]):
+    light_color = np.zeros_like(hits)
+    light_specular = np.zeros_like(hits)
     for i, light in enumerate(lights):
         light_sources = np.ones_like(light_directions[i]) * light.position
 
         lr_interactions, l_interaction_indices = compute_rays_interactions(surfaces=surfaces,
                                                                            rays_sources=light_sources,
-                                                                           rays_directions=light_directions[i])
+                                                                           rays_directions=-light_directions[i])
         l_hits, obj_indices = calc_ray_hits(ray_interactions=lr_interactions, indices=l_interaction_indices)
+
         direct_light_mask = (l_hits - hits) < EPSILON
-        obscured_light_mask = np.ones_like(l_hits) - direct_light_mask
-        obscured_light_mask *= (1 - light.shadow_intensity)
+        obscured_light_mask = 1.0 - direct_light_mask
 
-        light_strength = np.maximum(direct_light_mask, obscured_light_mask)
+        direct_light_intensity = direct_light_mask * 1.0
+        obscured_light_intensity = obscured_light_mask * (1.0 - light.shadow_intensity)
+        light_intensity = np.maximum(direct_light_intensity, obscured_light_intensity)
 
-        lights_colors.append(light_strength * light.color)
-        lights_specular.append(direct_light_mask * light.specular_intensity)
+        light_color += (light.color * light_intensity)
+        light_specular += (light.specular_intensity * direct_light_mask)
 
-    return np.array(lights_colors), np.array(lights_specular)
+    light_color = np.clip(light_color, None, 1)
+    light_specular = np.clip(light_specular, None, 1)
+    return light_color, light_specular
 
 
 def calc_light_rays(sources: Matrix[Vector], lights: list[Light]) -> list[Matrix[Vector]]:
     """
-    calculate rays directions from each light source to all sources.
+    calculate rays directions from all sources to each light source.
 
     :param sources: A 2D matrix of vectors, each vector represents a 3D point in space.
     :param lights: A list of light sources in the scene.
@@ -333,17 +340,17 @@ def calc_light_rays(sources: Matrix[Vector], lights: list[Light]) -> list[Matrix
     """
     ray_directions = []
     for light in lights:
-        direction = (sources - light.position)
-        length = np.linalg.norm(direction)
-        ray_directions.append(direction / length)
+        direction = (light.position - sources)
+        length = np.linalg.norm(direction, axis=2)
+        ray_directions.append(direction / length[:, :, np.newaxis])
 
     return ray_directions
 
 
 def calculate_specular_colors(surfaces_specular_color: Matrix[ColorVector], surfaces_phong_coefficient: Matrix[float],
-                              lights_directions: list[Matrix[Vector]], viewer_directions: Matrix[Vector],
+                              surfaces_to_lights_directions: list[Matrix[Vector]], viewer_directions: Matrix[Vector],
                               surface_normals: Matrix[Vector], lights: [list[Light]],
-                              lights_specular_intensities: np.ndarray[Matrix[float]]):
+                              light_specular_intensity: np.ndarray[Matrix[float]]):
     """
     Specular color formula: Sum { Ks * (Rm * V)^α * Ims } for m in lights
     Ks is specular reflection constant, the ratio of reflection of the specular term of incoming light
@@ -356,14 +363,14 @@ def calculate_specular_colors(surfaces_specular_color: Matrix[ColorVector], surf
 
     n = len(lights)
     Ks = surfaces_specular_color
-    Lm = lights_directions
-    Rm = [calc_reflection_rays(rays_directions=Lm[i], surface_normals=surface_normals) for i in range(n)]
+    Lm = surfaces_to_lights_directions
+    Rm = np.array([calc_reflection_rays(rays_directions=Lm[i], surface_normals=surface_normals) for i in range(n)])
     V = viewer_directions
-    alpha = np.repeat((surfaces_phong_coefficient / 100)[:, :, np.newaxis], 3, axis=2)  # todo: check about coefficient
-    Ims = lights_specular_intensities
-    Rm_dot_V = np.array([np.repeat((np.sum(V * mat, axis=2))[:, :, np.newaxis], 3, axis=2) for mat in Rm])
+    alpha = surfaces_phong_coefficient[..., np.newaxis]  # todo: check about coefficient
+    Ims = light_specular_intensity
+    Rm_dot_V = np.array([np.sum(Rm[i] * V, axis=-1, keepdims=True) for i in range(n)])
 
-    specular_colors = sum([Ks * (Rm_dot_V[i] ** alpha) * Ims[i] for i in range(n)])
+    specular_colors = sum([Ks * (Rm_dot_V[i] ** alpha) * Ims for i in range(n)])
     specular_colors = np.nan_to_num(specular_colors, nan=0.0)
     return specular_colors
 
@@ -388,9 +395,11 @@ def apply_object_method(objects: list, indices_matrix: Matrix, method_name: str,
 def calc_reflection_rays(rays_directions: Matrix[Vector], surface_normals: Matrix[Vector]) -> np.ndarray:
     """
     Calculate the reflected ray directions for multiple rays given their hit locations and corresponding normals.
+    important: reflection_rays is from_shooting_point_to_surfaces iff rays_directions is from_shooting_point_to_surfaces
+                i.e. incoming rays -> incoming reflection, outgoing rays -> outgoing reflection
 
     :param rays_directions: A 3D array of ray directions (shape: [N, N, 3]).
-    :param surface_normals: A 3D arra of the surface normals on ray impact point (shape: [N, N, 3]).
+    :param surface_normals: A 3D array of the surface normals on ray impact point (shape: [N, N, 3]).
     :return: A 3D array of reflected ray directions (shape: [N, N, 3]).
     """
     N, M, _ = rays_directions.shape
@@ -403,7 +412,7 @@ def calc_reflection_rays(rays_directions: Matrix[Vector], surface_normals: Matri
     dot_products = np.sum(rays_directions * surface_normals, axis=-1, keepdims=True)
 
     # Compute reflected rays
-    reflected_rays = rays_directions - 2 * dot_products * surface_normals
+    reflected_rays = 2 * dot_products * surface_normals - rays_directions
 
     return reflected_rays
 
