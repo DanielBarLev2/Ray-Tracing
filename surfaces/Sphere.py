@@ -113,3 +113,7 @@ class Sphere(Object3D):
     def calculate_normal(self, point: np.ndarray) -> np.ndarray:
         direction = (point - self.position)
         return direction / np.linalg.norm(direction)
+
+    def calculate_normals(self, rays_interactions: np.ndarray) -> np.ndarray:
+        directions = (rays_interactions - self.position)
+        return directions / np.linalg.norm(directions, axis=-1)[:, np.newaxis]

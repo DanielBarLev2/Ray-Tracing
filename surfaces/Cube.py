@@ -145,3 +145,35 @@ class Cube(Object3D):
             raise ValueError("The given point is not on the surface of the cube.")
 
         return normal
+
+    def calculate_normals(self, rays_interactions: np.ndarray) -> np.ndarray:
+        """
+        Calculate the normal vectors for given points on the surface of the cube.
+
+        :param rays_interactions: An ndarray of points on the surface of the cube (shape: Nx3).
+        :return: An ndarray of normal vectors at the given points on the surface of the cube (shape: Nx3).
+        """
+        # Calculate the distance from the points to each face center
+        dist_right = np.linalg.norm(rays_interactions - self.right, axis=1)
+        dist_left = np.linalg.norm(rays_interactions - self.left, axis=1)
+        dist_up = np.linalg.norm(rays_interactions - self.up, axis=1)
+        dist_down = np.linalg.norm(rays_interactions - self.down, axis=1)
+        dist_forward = np.linalg.norm(rays_interactions - self.forward, axis=1)
+        dist_backward = np.linalg.norm(rays_interactions - self.backward, axis=1)
+
+        # Stack the distances to find the minimum distance
+        dists = np.stack([dist_right, dist_left, dist_up, dist_down, dist_forward, dist_backward], axis=1)
+        min_indices = np.argmin(dists, axis=1)
+
+        # Create an array to hold the normal vectors
+        normals = np.zeros(rays_interactions.shape)
+
+        # Assign the normal vectors based on the closest face
+        normals[min_indices == 0] = (self.right - self.position) / np.linalg.norm(self.right - self.position)
+        normals[min_indices == 1] = (self.left - self.position) / np.linalg.norm(self.left - self.position)
+        normals[min_indices == 2] = (self.up - self.position) / np.linalg.norm(self.up - self.position)
+        normals[min_indices == 3] = (self.down - self.position) / np.linalg.norm(self.down - self.position)
+        normals[min_indices == 4] = (self.forward - self.position) / np.linalg.norm(self.forward - self.position)
+        normals[min_indices == 5] = (self.backward - self.position) / np.linalg.norm(self.backward - self.position)
+
+        return normals
