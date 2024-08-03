@@ -119,12 +119,8 @@ def main():
 
     materials.sort(key=lambda x: x.index)
 
-    image_colors = ray_tracing(rays_sources=rays_sources,
-                               rays_directions=rays_directions,
-                               surfaces=surfaces,
-                               materials=materials,
-                               lights=light_sources,
-                               scene=scene_settings)
+    image_colors = ray_tracing(rays_sources=rays_sources, rays_directions=rays_directions, surfaces=surfaces,
+                               materials=materials, lights=light_sources, scene=scene_settings,camera=camera)
 
     image_colors = (image_colors * 255).astype(np.uint8)
 
@@ -142,12 +138,13 @@ def ray_tracing(rays_sources: np.ndarray,
                 surfaces: list[SurfaceAbs],
                 materials: list[Material],
                 lights: list[Light],
-                scene: SceneSettings):
+                scene: SceneSettings,camera:Camera):
     """
     Performs ray tracing for a given set of initial rays, calculating interactions with objects,
     and computing both reflected and go-through ray directions.
     This function is designed to handle the interaction of rays with infinite planes, spheres and cubes.
 
+    :param camera:
     :param rays_sources: matrix of ray source coordinates.
     :param rays_directions: matrix of ray direction coordinates.
     :param surfaces: a list of 3d objects. used to fetch normals and calculate reflections.
@@ -179,7 +176,7 @@ def ray_tracing(rays_sources: np.ndarray,
     light_color, light_specular_intensity = get_light_base_colors(lights=lights,
                                                                   light_directions=surfaces_to_lights_directions,
                                                                   surfaces=surfaces,
-                                                                  hits=ray_hits)
+                                                                  hits=ray_hits,camera=camera, scene=scene)
 
     # 6.4.2: Add the value it induces on the surface.
     specular_colors = compute_specular_colors(surfaces_specular_color=base_specular_colors,

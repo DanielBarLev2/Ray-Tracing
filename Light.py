@@ -2,6 +2,8 @@ import numpy as np
 
 from util import *
 from surfaces import SurfaceAbs
+from Camera import Camera
+from SceneSettings import SceneSettings
 from surfaces.Object3D import Object3D
 from ray_functions import compute_rays_interactions, compute_rays_hits
 
@@ -48,7 +50,9 @@ def compute_light_rays(sources: np.ndarray, lights: list[Light]) -> np.ndarray:
 def get_light_base_colors(lights: list[Light],
                           light_directions: np.ndarray,
                           surfaces: list[SurfaceAbs],
-                          hits: Matrix):
+                          hits: Matrix,
+                          camera: Camera,
+                          scene: SceneSettings):
     """
     Calculate the base colors and specular values of light sources on surfaces.
 
@@ -69,14 +73,15 @@ def get_light_base_colors(lights: list[Light],
     light_specular = np.zeros_like(hits)
 
     for i, light in enumerate(lights):
-        light_sources = np.ones_like(light_directions[i]) * light.position
+        light_direction = light_directions[i]
+        light_sources = np.ones_like(light_direction) * light.position
 
         compute_shadows(light=light, surfaces=surfaces, rays_sources=light_sources, rays_directions=-light_direction
                         , hits=hits, camera=camera, scene=scene)
 
         light_rays_interactions, light_index_list = compute_rays_interactions(surfaces=surfaces,
                                                                               rays_sources=light_sources,
-                                                                              rays_directions=-light_directions[i])
+                                                                              rays_directions=-light_direction)
 
         light_hits, obj_indices = compute_rays_hits(ray_interactions=light_rays_interactions,
                                                     index_list=light_index_list)
