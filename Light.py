@@ -76,6 +76,9 @@ def get_light_base_colors(lights: list[Light],
         light_hits, obj_indices = compute_rays_hits(ray_interactions=light_rays_interactions,
                                                     index_list=light_index_list)
 
+        light_hits[light_hits == np.inf] = 0
+        hits[hits == np.inf] = 0
+
         direct_light_mask = (light_hits - hits) < EPSILON
         obscured_light_mask = 1.0 - direct_light_mask
 

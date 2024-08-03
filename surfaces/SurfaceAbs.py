@@ -36,7 +36,10 @@ class SurfaceAbs(ABC):
         pass
 
     def get_material_index(self):
-        return self.material_index - 1  # original indices start from 1
+        if self.material_index:
+            return self.material_index
+        else:
+            return 0
 
 
 def get_surfaces_normals(surfaces: list, surfaces_indices: np.ndarray, ray_hits: np.ndarray) -> np.ndarray:
@@ -44,9 +47,9 @@ def get_surfaces_normals(surfaces: list, surfaces_indices: np.ndarray, ray_hits:
     normals = np.zeros_like(ray_hits)
 
     for idx in np.unique(surfaces_indices):
-        if idx == -1:  # todo: bg - handle this case.
-            continue
-        surface = surfaces[idx]
+        # if idx == -1:  # todo: bg - handle this case.
+        #     continue
+        surface: SurfaceAbs = surfaces[idx]
         mask = (surfaces_indices == idx)
         rays_interactions_with_surface = ray_hits[mask]
         normals[mask] = surface.calculate_normals(rays_interactions_with_surface)
@@ -59,9 +62,7 @@ def get_surfaces_material_indies(surfaces: list, surfaces_indices: np.ndarray) -
     material_indies = np.zeros_like(surfaces_indices)
 
     for idx in np.unique(surfaces_indices):
-        if idx == -1:  # todo: bg - handle this case.
-            continue
-        surface = surfaces[idx]
+        surface: SurfaceAbs = surfaces[idx]
         mask = (surfaces_indices == idx)
         material_indies[mask] = surface.get_material_index()
 

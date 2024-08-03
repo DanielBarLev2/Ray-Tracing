@@ -3,6 +3,7 @@ import argparse
 
 import numpy as np
 
+from surfaces.Background import Background
 from util import *
 from PIL import Image
 from Camera import Camera
@@ -17,7 +18,7 @@ from surfaces.SurfaceAbs import SurfaceAbs, get_surfaces_normals, get_surfaces_m
 
 
 def parse_scene_file(file_path):
-    index = 0
+    index = 1
     mat_index = 0
     objects_3D = []
     camera = None
@@ -88,6 +89,14 @@ def main():
     surfaces: list[SurfaceAbs] = []
     materials: list[Material] = []
     light_sources: list[Light] = []
+
+    surfaces.append(Background())
+    materials.append(Material(diffuse_color=scene_settings.background_color,
+                              specular_color=[0, 0, 0],
+                              reflection_color=[0, 0, 0],
+                              shininess=0,
+                              transparency=0,
+                              mat_index=0))
 
     for obj in objects:
         if isinstance(obj, SurfaceAbs):
@@ -188,6 +197,7 @@ def ray_tracing(rays_sources: np.ndarray,
                                         recursion_scene)
     else:
         go_through_colors = np.zeros_like(diffusive_colors)
+
     back_colors = go_through_colors * transparency_values
 
     reflection_rays_directions = compute_reflection_rays(-rays_directions, surfaces_normals)

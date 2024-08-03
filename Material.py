@@ -53,8 +53,6 @@ def get_materials_base_colors(materials: list[Material], material_indices: np.nd
     transparency_values = np.zeros((*material_indices.shape, 3))
 
     for idx in np.unique(material_indices):
-        if idx == -1:  # todo: bg - handle this case.
-            continue
         material = materials[idx]
         mask = (material_indices == idx)
 
