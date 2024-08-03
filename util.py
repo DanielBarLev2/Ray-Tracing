@@ -10,3 +10,5 @@ Y_DIRECTION = np.array([0, 1, 0])
 Z_DIRECTION = np.array([0, 0, 1])
 
 EPSILON = 1e-6
+
+MAX_RENDER_DISTANCE = 100_000_000

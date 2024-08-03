@@ -55,7 +55,6 @@ def get_materials_base_colors(materials: list[Material], material_indices: np.nd
     for idx in np.unique(material_indices):
         material = materials[idx]
         mask = (material_indices == idx)
-
         diffusive_colors[mask] = material.diffuse_color
         surfaces_specular_colors[mask] = material.specular_color
         phong[mask] = material.shininess

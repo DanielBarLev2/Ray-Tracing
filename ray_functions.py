@@ -55,11 +55,6 @@ def compute_rays_interactions(surfaces: list[SurfaceAbs],
         surface_intersection = surface.intersect_vectorized(rays_sources=rays_sources, rays_directions=rays_directions)
         rays_interactions.append(surface_intersection)
         index_list.append(surface.index)
-    #
-    # # background index and virtual intersections. todo: Hi Daniel :), decide how to handle this, currently not working
-    # max_v = np.max(np.nan_to_num(rays_interactions, nan=-np.inf))
-    # rays_interactions.append(np.full_like(rays_sources, max_v + 1))
-    # index_list.append(-1)
 
     return rays_interactions, index_list
 

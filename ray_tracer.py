@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 
 from surfaces.Background import Background
+from surfaces.Object3D import Object3D
 from util import *
 from PIL import Image
 from Camera import Camera
@@ -127,6 +128,7 @@ def main():
 
     image_colors = (image_colors * 255).astype(np.uint8)
 
+    print("done")
     bgr_image = cv2.cvtColor(image_colors, cv2.COLOR_RGB2BGR)
     cv2.imshow('RGB Image', bgr_image)
     cv2.waitKey(0)
@@ -154,6 +156,7 @@ def ray_tracing(rays_sources: np.ndarray,
     :param scene: a `SceneSettings` object containing settings for the scene, such as lighting, camera position, etc.
     :return:a 3D array representing the image result
     """
+    print(scene.max_recursions)
     recursion_scene = SceneSettings(scene.background_color, scene.root_number_shadow_rays, scene.max_recursions - 1)
 
     # 6.3: Find the nearest intersection of the ray. This is the surface that will be seen in the image.
@@ -193,8 +196,9 @@ def ray_tracing(rays_sources: np.ndarray,
 
     go_through_rays_directions = rays_directions
     if scene.max_recursions > 0:
-        go_through_colors = ray_tracing(ray_hits, go_through_rays_directions, surfaces, materials, lights,
-                                        recursion_scene)
+        go_through_colors = ray_tracing(rays_sources=ray_hits + EPSILON * go_through_rays_directions,
+                                        rays_directions=go_through_rays_directions, surfaces=surfaces,
+                                        materials=materials, lights=lights, scene=recursion_scene,camera=camera)
     else:
         go_through_colors = np.zeros_like(diffusive_colors)
 
@@ -202,7 +206,9 @@ def ray_tracing(rays_sources: np.ndarray,
 
     reflection_rays_directions = compute_reflection_rays(-rays_directions, surfaces_normals)
     if scene.max_recursions > 0:
-        reflection = ray_tracing(ray_hits, reflection_rays_directions, surfaces, materials, lights, recursion_scene)
+        reflection = ray_tracing(rays_sources=ray_hits + EPSILON * reflection_rays_directions,
+                                 rays_directions=reflection_rays_directions, surfaces=surfaces, materials=materials,
+                                 lights=lights, scene=recursion_scene,camera=camera)
     else:
         reflection = np.zeros_like(diffusive_colors)
     reflection *= reflective_colors

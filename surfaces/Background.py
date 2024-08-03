@@ -1,5 +1,4 @@
-import numpy as np
-
+from util import *
 from surfaces.SurfaceAbs import SurfaceAbs
 
 
@@ -14,7 +13,7 @@ class Background(SurfaceAbs):
         pass
 
     def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray) -> np.ndarray:
-        intersections = np.full_like(rays_directions, np.inf)
+        intersections = np.full_like(rays_directions, fill_value=MAX_RENDER_DISTANCE)
         return intersections
 
     def calculate_normal(self, point: np.ndarray) -> np.ndarray:
