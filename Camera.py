@@ -1,5 +1,4 @@
-import numpy as np
-
+from util import *
 
 class Camera:
     def __init__(self, position, look_at, up_vector, screen_distance, screen_width):
@@ -9,6 +8,16 @@ class Camera:
         self.screen_distance = screen_distance
         self.screen_width = screen_width
         self.look_direction = self.look_at - self.position
+        self.view_mat = None
+
+    def __repr__(self):
+        return f"Camera:\n" \
+               f"pos: {self.position}\n" \
+               f"look_at: {self.look_at}\n" \
+               f"look dir: {self.look_direction}\n" \
+               f"up: {self.up_vector}\n" \
+               f"screen dist: {self.screen_distance}\n" \
+               f"screen width: {self.screen_width}\n"
 
     def create_view_matrix(self) -> np.ndarray:
         """
@@ -37,6 +46,7 @@ class Camera:
                                 [forward[0], forward[1], forward[2], -np.dot(forward, self.position)],
                                 [0, 0, 0, 1]])
 
+        self.view_mat = view_matrix
         return view_matrix
 
     @staticmethod
@@ -57,3 +67,5 @@ class Camera:
 
     def transform_to_camera(self, view_matrix: np.ndarray):
         self.position = self.transform_to_camera_coordinates(self.position, view_matrix)
+        self.look_direction = Z_DIRECTION
+        self.up_vector = Y_DIRECTION
