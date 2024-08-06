@@ -15,7 +15,7 @@ from surfaces.InfinitePlane import InfinitePlane
 from Material import Material, get_materials_base_colors
 from Light import Light, get_light_base_colors, compute_light_rays, compute_reflection_rays, compute_specular_colors
 from ray_functions import get_ray_vectors, compute_rays_interactions, compute_rays_hits
-from surfaces.SurfaceAbs import SurfaceAbs, get_surfaces_normals, get_surfaces_material_indies
+from surfaces.SurfaceAbs import SurfaceAbs, get_surfaces_normals, get_surfaces_material_indices
 
 
 def parse_scene_file(file_path):
@@ -120,7 +120,7 @@ def main():
     materials.sort(key=lambda x: x.index)
 
     image_colors = ray_tracing(rays_sources=rays_sources, rays_directions=rays_directions, surfaces=surfaces,
-                               materials=materials, lights=light_sources, scene=scene_settings,camera=camera)
+                               materials=materials, lights=light_sources, scene=scene_settings, camera=camera)
 
     image_colors = (image_colors * 255).astype(np.uint8)
 
@@ -138,7 +138,7 @@ def ray_tracing(rays_sources: np.ndarray,
                 surfaces: list[SurfaceAbs],
                 materials: list[Material],
                 lights: list[Light],
-                scene: SceneSettings,camera:Camera):
+                scene: SceneSettings, camera: Camera):
     """
     Performs ray tracing for a given set of initial rays, calculating interactions with objects,
     and computing both reflected and go-through ray directions.
@@ -153,6 +153,9 @@ def ray_tracing(rays_sources: np.ndarray,
     :param scene: a `SceneSettings` object containing settings for the scene, such as lighting, camera position, etc.
     :return:a 3D array representing the image result
     """
+    if scene.max_recursions < 0:
+        return np.zeros_like(rays_sources)
+
     print(scene.max_recursions)
     recursion_scene = SceneSettings(scene.background_color, scene.root_number_shadow_rays, scene.max_recursions - 1)
 
@@ -161,13 +164,11 @@ def ray_tracing(rays_sources: np.ndarray,
                                                               rays_sources=rays_sources,
                                                               rays_directions=rays_directions)
 
-    ray_hits, surfaces_indices = compute_rays_hits(ray_interactions=rays_interactions, index_list=index_list)
+    ray_hits, surfaces_indices = compute_rays_hits(ray_interactions=rays_interactions, ray_sources=rays_sources,
+                                                   index_list=index_list)
 
-    surfaces_normals = get_surfaces_normals(surfaces=surfaces,
-                                            surfaces_indices=surfaces_indices,
-                                            ray_hits=ray_hits)
-
-    material_indices = get_surfaces_material_indies(surfaces=surfaces, surfaces_indices=surfaces_indices)
+    surfaces_normals = get_surfaces_normals(surfaces=surfaces, surfaces_indices=surfaces_indices, ray_hits=ray_hits)
+    material_indices = get_surfaces_material_indices(surfaces=surfaces, surfaces_indices=surfaces_indices)
     material_colors = get_materials_base_colors(materials=materials, material_indices=material_indices)
     diffusive_colors, base_specular_colors, phong, reflective_colors, transparency_values = material_colors
 
@@ -176,7 +177,7 @@ def ray_tracing(rays_sources: np.ndarray,
     light_color, light_specular_intensity = get_light_base_colors(lights=lights,
                                                                   light_directions=surfaces_to_lights_directions,
                                                                   surfaces=surfaces,
-                                                                  hits=ray_hits,camera=camera, scene=scene)
+                                                                  hits=ray_hits, scene=scene)
 
     # 6.4.2: Add the value it induces on the surface.
     specular_colors = compute_specular_colors(surfaces_specular_color=base_specular_colors,
@@ -184,36 +185,26 @@ def ray_tracing(rays_sources: np.ndarray,
                                               surfaces_to_lights_directions=surfaces_to_lights_directions,
                                               viewer_directions=-rays_directions,
                                               surface_normals=surfaces_normals,
-                                              light_specular_intensity=light_specular_intensity)
+                                              lights_specular_intensity=light_specular_intensity)
 
-    # transparency_values = np.zeros_like(ray_hits)
-    non_transparency_values = np.ones_like(ray_hits) - transparency_values
-
+    non_transparency_values = 1.0 - transparency_values
     base_colors = (diffusive_colors + specular_colors) * light_color * non_transparency_values
 
     go_through_rays_directions = rays_directions
-    if scene.max_recursions > 0:
-        go_through_colors = ray_tracing(rays_sources=ray_hits + EPSILON * go_through_rays_directions,
-                                        rays_directions=go_through_rays_directions, surfaces=surfaces,
-                                        materials=materials, lights=lights, scene=recursion_scene,camera=camera)
-    else:
-        go_through_colors = np.zeros_like(diffusive_colors)
-
+    go_through_colors = ray_tracing(rays_sources=ray_hits + EPSILON * go_through_rays_directions,
+                                    rays_directions=go_through_rays_directions, surfaces=surfaces,
+                                    materials=materials, lights=lights, scene=recursion_scene, camera=camera)
     back_colors = go_through_colors * transparency_values
 
     reflection_rays_directions = compute_reflection_rays(-rays_directions, surfaces_normals)
-    if scene.max_recursions > 0:
-        reflection = ray_tracing(rays_sources=ray_hits + EPSILON * reflection_rays_directions,
-                                 rays_directions=reflection_rays_directions, surfaces=surfaces, materials=materials,
-                                 lights=lights, scene=recursion_scene,camera=camera)
-    else:
-        reflection = np.zeros_like(diffusive_colors)
+    reflection = ray_tracing(rays_sources=ray_hits + EPSILON * reflection_rays_directions,
+                             rays_directions=reflection_rays_directions, surfaces=surfaces, materials=materials,
+                             lights=lights, scene=recursion_scene, camera=camera)
     reflection *= reflective_colors
 
     image_colors = (back_colors + base_colors + reflection)
     image_colors[image_colors > 1] = 1
     # image_colors = image_colors/np.max(image_colors)
-
     return image_colors
 
 
