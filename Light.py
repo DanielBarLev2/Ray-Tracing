@@ -2,13 +2,13 @@ from util import *
 from surfaces import SurfaceAbs
 from SceneSettings import SceneSettings
 from surfaces.Object3D import Object3D
-from ray_functions import compute_rays_interactions, compute_rays_hits
+from ray_functions import compute_rays_interactions, compute_rays_hits, get_closest_hits
 
 
 class Light:
     def __init__(self, position, color, specular_intensity, shadow_intensity, radius, index: int):
-        self.position = position
-        self.color = color
+        self.position = np.array(position)
+        self.color = np.array(color)
         self.specular_intensity = specular_intensity
         self.shadow_intensity = shadow_intensity
         self.radius = radius
@@ -75,32 +75,49 @@ def get_light_base_colors(lights: list[Light],
              - light_color: An array with the same shape as hits, representing the color contributions from the lights.
              - light_specular: An array with the same shape as hits, representing the specular lights.
     """
-    light_color = np.zeros_like(hits)
+    lights_diffusive = []
     lights_specular = []
-
-    total_intensity = np.zeros((hits.shape[0], hits.shape[1], 1))
+    direct_lights_masks = []
     for i, light in enumerate(lights):
         light_direction = light_directions[i]
-        light_sources = np.ones_like(light_directions[i]) * light.position
-        lr_interactions, l_interaction_indices = compute_rays_interactions(surfaces=surfaces,
-                                                                           rays_sources=light_sources,
-                                                                           rays_directions=-light_direction)
-        l_hits, obj_indices = compute_rays_hits(ray_interactions=lr_interactions, index_list=l_interaction_indices)
-        direct_light_mask = np.linalg.norm((l_hits - hits), axis=-1) < EPSILON
-        lights_specular.append(light.specular_intensity * direct_light_mask)
+        light_sources = np.full_like(light_direction, light.position)
+        l_hits, _ = get_closest_hits(rays_sources=light_sources, rays_directions=-light_direction, surfaces=surfaces)
 
-        light_sources = np.ones_like(light_direction) * light.position
-
+        # light intensity
         light_intensity = compute_shadows(light=light, surfaces=surfaces, light_sources=light_sources,
                                           light_direction=-light_direction,
-                                          hits=hits, scene=scene)
+                                          hits=hits, scene=scene).clip(0, 1)
 
-        light_color += (light.color * light_intensity)
-        total_intensity += light_intensity
+        # light specular induced color
+        specular = (light.specular_intensity * light.color) * light_intensity
+        lights_specular.append(specular)
 
-    light_color /= light_color.max(axis=(0, 1), keepdims=True)
+        # light diffusive induced color
+        light_diffusive = (light_intensity * light.color)
+        lights_diffusive.append(light_diffusive)
+
+    lights_diffusive = np.array(lights_diffusive)
     lights_specular = np.array(lights_specular)
-    return light_color, lights_specular
+    return lights_diffusive, lights_specular
+
+
+def compute_diffuse_color(obj_diffuse_color: Matrix, light_diffuse_color: Matrix, light_directions: Matrix,
+                          surfaces_normals:Matrix):
+    """
+        Specular color formula: Sum { Kd * (Lm * V) * Imd } for m in lights
+        Kd is diffusive color constant of the object, the ratio of reflection of the specular term of incoming light
+        Lm is the direction vector from the point on the surface toward each light source
+        N is the normal at this point on the surface
+        Ims is the light specular intensity"""
+    Kd = obj_diffuse_color
+    Lm = light_directions
+    N = surfaces_normals
+    Imd = light_diffuse_color
+
+    Lm_dot_N = np.sum(Lm * N, axis=-1, keepdims=True)  # Shape: (N, h, w)
+    Lm_dot_N = np.maximum(Lm_dot_N, 0)  # to remove negative values
+    diffuse_colors = np.sum(Kd[np.newaxis, ...] * Lm_dot_N * Imd, axis=0)
+    return diffuse_colors
 
 
 def compute_specular_colors(surfaces_specular_color: Matrix,
@@ -129,7 +146,7 @@ def compute_specular_colors(surfaces_specular_color: Matrix,
 
     Rm_dot_V = np.sum(Rm * V, axis=-1, keepdims=True)
 
-    specular_colors = np.sum(Ks * (Rm_dot_V ** alpha) * Ims[:, :, :, np.newaxis], axis=0)
+    specular_colors = np.sum(Ks * (Rm_dot_V ** alpha) * Ims, axis=0)
 
     specular_colors = np.nan_to_num(specular_colors, nan=0.0)
 
@@ -170,21 +187,21 @@ def compute_shadows(light: Light,
 
     shadow_sources = shadow_sources.reshape((h * n, w * n, d))
     shadow_rays = shadow_rays.reshape((h * n, w * n, d))
-    light_rays_interactions, light_index_list = compute_rays_interactions(surfaces=surfaces,
-                                                                          rays_sources=shadow_sources,
-                                                                          rays_directions=shadow_rays)
-
-    light_hits, obj_indices = compute_rays_hits(ray_interactions=light_rays_interactions, index_list=light_index_list)
-
+    light_hits, l_hits_object_indices = get_closest_hits(surfaces=surfaces, rays_sources=shadow_sources, rays_directions=shadow_rays)
     light_hits: Matrix = light_hits.reshape((h, w, n, n, d))
+    l_hits_object_indices = l_hits_object_indices.reshape((h, w, n, n))
+    background_hits = l_hits_object_indices == 0
+
     light_hits[light_hits == np.inf] = -1
     hits[hits == np.inf] = -1
+
     multi_dim_hits: Matrix = np.tile(hits[:, :, np.newaxis, np.newaxis, :], (1, 1, n, n, 1))
     dist_from_orig_hits: Matrix = np.linalg.norm((light_hits - multi_dim_hits), axis=-1)
     direct_light_mask: Matrix = dist_from_orig_hits < EPSILON
+    direct_light_mask[background_hits] = 1
 
-    direct_hits = direct_light_mask.astype(int)[:, :, :, :, np.newaxis]
-    direct_hits_percentage = np.sum(direct_hits, axis=(2, 3)) / (n * n)
+    direct_light_mask = direct_light_mask.astype(int)[:, :, :, :, np.newaxis]
+    direct_hits_percentage = np.sum(direct_light_mask, axis=(2, 3)) / (n * n)
     shadow_intensity = ((1.0 - light.shadow_intensity) + light.shadow_intensity * direct_hits_percentage)
     return shadow_intensity
 
