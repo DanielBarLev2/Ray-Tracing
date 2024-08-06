@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import cv2
 import argparse
 from util import *
@@ -65,8 +67,15 @@ def save_image(image_array: np.ndarray, path: str) -> None:
     :param path:
     :return:
     """
+    now = datetime.now()
+    date_str = now.strftime("%m-%d_%H-%M")
+    full_path = f"{path}/image_{date_str}.png"
+
+    # Convert the image array to an 8-bit unsigned integer array
     image = Image.fromarray(np.uint8(image_array))
-    image.save(path)
+
+    # Save the image
+    image.save(full_path)
 
 
 def main():
@@ -147,7 +156,7 @@ def ray_tracing(rays_sources: np.ndarray,
     :param surfaces: a list of 3d objects. used to fetch normals and calculate reflections.
     :param materials: a list of object materials.
     :param lights: a list of light sources in the scene.
-    :param scene: a `SceneSettings` object containing settings for the scene, such as lighting, camera position, etc.
+    :param scene: a SceneSettings object containing settings for the scene, such as lighting, camera position, etc.
     :return:a 3D array representing the image result
     """
     if scene.max_recursions < 0:
@@ -157,10 +166,9 @@ def ray_tracing(rays_sources: np.ndarray,
     recursion_scene = SceneSettings(scene.background_color, scene.root_number_shadow_rays, scene.max_recursions - 1)
 
     # 6.3: Find the nearest intersection of the ray. This is the surface that will be seen in the image
-    ray_hits, surfaces_indices = get_closest_hits(surfaces=surfaces, rays_sources=rays_sources,
-                                                  rays_directions=rays_directions)
-
-    ray_hits, surfaces_indices = compute_rays_hits(ray_interactions=rays_interactions, index_list=index_list)
+    ray_hits, surfaces_indices = get_closest_hits(rays_sources=rays_sources,
+                                                  rays_directions=rays_directions,
+                                                  surfaces=surfaces)
 
     surfaces_normals = get_surfaces_normals(surfaces=surfaces, surfaces_indices=surfaces_indices, ray_hits=ray_hits)
     material_indices = get_surfaces_material_indices(surfaces=surfaces, surfaces_indices=surfaces_indices)

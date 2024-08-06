@@ -2,7 +2,7 @@
 cam 	    0   	5	    -15 	 0   	0   	0  	 0   	1   	0  	1.4	    1
 
 # Settings: 	bgr  	bgg  	bgb	 sh_rays	rec_max
-set 		    0.2	    0.6	    1    5 	        3
+set 		    0.2	    0.6	    1    4 	        2
 
 # Material:	dr    	dg    	db	    sr   	sg   	sb  	rr   	rg  	rb	    phong 	trans
 # 1 - Transparent blue with tiny white specular color. reflections are tinted light blue.

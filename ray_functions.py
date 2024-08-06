@@ -92,6 +92,6 @@ def get_closest_hits(rays_sources: Matrix, rays_directions: Matrix, surfaces: li
         -> tuple[Matrix, Matrix]:
 
     rays_interactions, index_list = compute_rays_interactions(surfaces, rays_sources, rays_directions)
-    res = compute_rays_hits(ray_interactions=rays_interactions, ray_sources=rays_sources, index_list=index_list)
+    res = compute_rays_hits(ray_interactions=rays_interactions, index_list=index_list)
     ray_hits, surface_indices = res
     return ray_hits, surface_indices
