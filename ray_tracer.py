@@ -1,16 +1,12 @@
 import cv2
 import argparse
-
-import numpy as np
-
-from surfaces.Background import Background
-from surfaces.Object3D import Object3D
 from util import *
 from PIL import Image
 from Camera import Camera
 from surfaces.Cube import Cube
 from surfaces.Sphere import Sphere
 from SceneSettings import SceneSettings
+from surfaces.Background import Background
 from surfaces.InfinitePlane import InfinitePlane
 from Material import Material, get_materials_base_colors
 from Light import Light, get_light_base_colors, compute_light_rays, compute_reflection_rays, compute_specular_colors
@@ -164,8 +160,7 @@ def ray_tracing(rays_sources: np.ndarray,
                                                               rays_sources=rays_sources,
                                                               rays_directions=rays_directions)
 
-    ray_hits, surfaces_indices = compute_rays_hits(ray_interactions=rays_interactions, ray_sources=rays_sources,
-                                                   index_list=index_list)
+    ray_hits, surfaces_indices = compute_rays_hits(ray_interactions=rays_interactions, index_list=index_list)
 
     surfaces_normals = get_surfaces_normals(surfaces=surfaces, surfaces_indices=surfaces_indices, ray_hits=ray_hits)
     material_indices = get_surfaces_material_indices(surfaces=surfaces, surfaces_indices=surfaces_indices)
@@ -191,7 +186,7 @@ def ray_tracing(rays_sources: np.ndarray,
     base_colors = (diffusive_colors + specular_colors) * light_color * non_transparency_values
 
     go_through_rays_directions = rays_directions
-    go_through_colors = ray_tracing(rays_sources=ray_hits + EPSILON * go_through_rays_directions,
+    go_through_colors = ray_tracing(rays_sources=ray_hits + 100 * EPSILON * go_through_rays_directions,
                                     rays_directions=go_through_rays_directions, surfaces=surfaces,
                                     materials=materials, lights=lights, scene=recursion_scene, camera=camera)
     back_colors = go_through_colors * transparency_values

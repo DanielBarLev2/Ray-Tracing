@@ -1,0 +1,45 @@
+# Camera: 	px   	py   	pz 	lx  	ly  	lz 	ux  	uy  	uz 	sc_dist	sc_width
+cam 	    0   	0	    0 	0   	0 	    1    0      1   	0      	1.4	  1
+cam         0       5       -20 0       5       0    0      1       0       3     6
+# Settings: 	bgr  	bgg  	bgb	sh_rays	rec_max
+set 		     1  	1  	    1   1	    2
+
+# Material:	dr    	dg    	db	   sr   	sg   	sb 	 rr   	 rg  	rb	  phong  trans
+# 1 Reflective glass
+mtl         0.2     0.2     0.8    0.8      0.8     1    0.7     0.7     1    100    0.5
+# 2 Concrete
+mtl         0.5     0.5     0.5    0.2      0.2     0.2  0.1     0.1   0.1    30     0
+# 3 Metal
+mtl         0.7     0.7     0.7    1        1       1    0.9     0.9   0.9    80     0
+# 4 Asphalt
+mtl         0.1     0.1     0.1    0        0      0       0    0       0      5    0
+# 5 Brick
+mtl         0.6     0.2     0.2    0.3      0.1     0.1  0       0       0    10     0
+# 6 Window glass
+mtl         0.2     0.4     0.7    0.7      0.7     1    0.5     0.5     0.8  50    0.7
+
+
+# Plane:	nx	ny	nz	offset	mat_idx
+pln		    0	1	0	-1	    4
+
+# Box:      cx      cy      cz      scale   mat_index
+box         -8      2       10      4       2
+box         0       3       1       5       3
+box         8       4       1       0       2
+box         -1      2       5       5       1
+box         12      3       5       6       2
+box         -5      2       18      4       2
+box         5       3       2       0       6
+box         0       4       2       5       2
+
+
+
+# Lights:	px	py	pz	r	g	b	    spec	shadow	width
+lgt        -7   6   10  1   1   0.8     0.5     1       1
+lgt        -1   7   15  1   1   0.8     0.5     1       1
+lgt         7   8   10  1   1   0.8     0.5     1       1
+lgt        -11  9   5   1   1   0.8     0.5     1       1
+lgt        11   7   5   1   1   0.8     0.5     1       1
+lgt        -4   6   18  1   1   0.8     0.5     1       1
+lgt         4   7   20  1   1   0.8     0.5     1       1
+lgt         0   8   25  1   1   0.8     0.5     1       1

@@ -1,11 +1,5 @@
-from typing import Tuple, Any
-
-import cv2
-import numpy as np
-
 from util import *
 from surfaces import SurfaceAbs
-from Camera import Camera
 from SceneSettings import SceneSettings
 from surfaces.Object3D import Object3D
 from ray_functions import compute_rays_interactions, compute_rays_hits
@@ -36,7 +30,6 @@ class Light:
         :return:
         """
         self.position = Object3D.transform_to_camera_coordinates(self.position, view_matrix)
-        print(self)
 
 
 def compute_light_rays(sources: np.ndarray, lights: list[Light]) -> np.ndarray:
@@ -77,6 +70,7 @@ def get_light_base_colors(lights: list[Light],
                              the direction vectors from each source to each light.
     :param surfaces: A list of SurfaceAbs objects representing the surfaces in the scene.
     :param hits: A Matrix representing the hit points on the surfaces.
+    :param scene: containing the number of shadow root rays.
     :return: A tuple containing two numpy arrays:
              - light_color: An array with the same shape as hits, representing the color contributions from the lights.
              - light_specular: An array with the same shape as hits, representing the specular lights.
@@ -91,21 +85,18 @@ def get_light_base_colors(lights: list[Light],
         lr_interactions, l_interaction_indices = compute_rays_interactions(surfaces=surfaces,
                                                                            rays_sources=light_sources,
                                                                            rays_directions=-light_direction)
-        l_hits, obj_indices = compute_rays_hits(ray_interactions=lr_interactions, ray_sources=light_sources,
-                                                index_list=l_interaction_indices)
+
+        l_hits, obj_indices = compute_rays_hits(ray_interactions=lr_interactions, index_list=l_interaction_indices)
         direct_light_mask = np.linalg.norm((l_hits - hits), axis=-1) < EPSILON
         lights_specular.append(light.specular_intensity * direct_light_mask)
 
-        light_sources = np.ones_like(light_direction) * light.position
-
-        light_intensity = compute_shadows(light=light, surfaces=surfaces, light_sources=light_sources,
+        light_intensity = compute_shadows(light=light, surfaces=surfaces,
                                           light_direction=-light_direction,
                                           hits=hits, scene=scene)
         light_color += (light.color * light_intensity)
         total_intensity += light_intensity
 
-    # todo: consult with daniel
-    light_color /= np.max(light_color)
+    light_color /= light_color.max(axis=(0, 1), keepdims=True)
     lights_specular = np.array(lights_specular)
     return light_color, lights_specular
 
@@ -165,13 +156,22 @@ def compute_reflection_rays(lights_rays_directions: np.ndarray, surface_normals:
 
 def compute_shadows(light: Light,
                     surfaces: list[SurfaceAbs],
-                    light_sources: Matrix,
                     light_direction: Matrix,
                     hits: Matrix,
                     scene: SceneSettings):
-    shadow_sources, shadow_rays = get_shadow_rays(light=light,
-                                                  shadows_rays=scene.root_number_shadow_rays,
-                                                  normals_rays=light_direction, hits=hits)
+    """
+    Compute the shadow intensity for each point in the scene based on light and surface interactions.
+
+    :param light: An object representing the light source, containing properties such as shadow intensity.
+    :param surfaces: A list of surface objects in the scene that interact with light rays.
+    :param light_direction: A matrix representing the direction of light at each point.
+    :param hits: A matrix representing the hit points of rays in the scene.
+    :param scene: An object containing the settings of the scene, including the number of shadow rays.
+
+    :return: A matrix representing the shadow intensity at each point in the scene.
+    """
+
+    shadow_sources, shadow_rays = get_shadow_rays(normals_rays=light_direction)
     h, w, d = hits.shape
     n = int(scene.root_number_shadow_rays)
 
@@ -181,7 +181,7 @@ def compute_shadows(light: Light,
                                                                           rays_sources=shadow_sources,
                                                                           rays_directions=shadow_rays)
 
-    light_hits, obj_indices = compute_rays_hits(ray_interactions=light_rays_interactions, ray_sources=shadow_sources,
+    light_hits, obj_indices = compute_rays_hits(ray_interactions=light_rays_interactions,
                                                 index_list=light_index_list)
 
     light_hits: Matrix = light_hits.reshape((h, w, n, n, d))
@@ -197,23 +197,16 @@ def compute_shadows(light: Light,
     return shadow_intensity
 
 
-def get_shadow_rays(light: Light, shadows_rays: int, normals_rays: Matrix, hits: Matrix) -> tuple[
-    np.ndarray, np.ndarray]:
+def get_shadow_rays(normals_rays: Matrix) -> tuple[np.ndarray, np.ndarray]:
     """
     Compute shadow rays originating from the light source.
 
-    :param light: The light source.
-    :param shadows_rays: Number of shadow rays.
-    :param normals_rays: Normal vectors at the hit points.
-    :param hits: Hit points on the surfaces.
-    :return: Tuple of ray sources and ray vectors.
+    :param normals_rays: A matrix representing normal vectors at the hit points.
+
+    :return: A tuple containing:
+        - ray_sources: A numpy array of ray source positions.
+        - ray_vectors: A numpy array of ray direction vectors.
     """
-
-    h = w = light.radius
-    shadows_rays = n = int(shadows_rays)
-    granularity = h / shadows_rays
-
-    light_sources = np.full_like(normals_rays, light.position)
     normals_rays = normals_rays / np.linalg.norm(normals_rays, axis=2, keepdims=True)
 
     up = Y_DIRECTION

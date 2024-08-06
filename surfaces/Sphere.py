@@ -1,6 +1,6 @@
-from surfaces.Object3D import Object3D
 from util import *
 import numpy as np
+from surfaces.Object3D import Object3D
 
 
 class Sphere(Object3D):

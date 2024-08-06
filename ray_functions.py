@@ -59,8 +59,7 @@ def compute_rays_interactions(surfaces: list[SurfaceAbs],
     return rays_interactions, index_list
 
 
-def compute_rays_hits(ray_interactions: list[np.ndarray], ray_sources: Matrix, index_list: list[int]) -> tuple[
-    np.ndarray, np.ndarray]:
+def compute_rays_hits(ray_interactions: list[np.ndarray], index_list: list[int]) -> tuple[np.ndarray, np.ndarray]:
     """
     Compare distance with the current value in the z-buffer at the corresponding pixel location.
      If the new distance is smaller (the intersection point is closer to the camera),

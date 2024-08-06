@@ -1,0 +1,77 @@
+# Camera settings
+cam 0 5 -20 0 5 0 0 1 0 3 6
+
+# Scene settings
+set 0.1 0.1 0.1 10 0
+
+# Materials
+# Reflective glass
+mtl 0.2 0.2 0.8 0.8 0.8 1 0.7 0.7 1 100 0.5
+# Concrete
+mtl 0.5 0.5 0.5 0.2 0.2 0.2 0.1 0.1 0.1 30 0
+# Metal
+mtl 0.7 0.7 0.7 1 1 1 0.9 0.9 0.9 80 0
+# Asphalt
+mtl 0.1 0.1 0.1 0 0 0 0 0 0 5 0
+# Brick
+mtl 0.6 0.2 0.2 0.3 0.1 0.1 0 0 0 10 0
+# Window glass
+mtl 0.2 0.4 0.7 0.7 0.7 1 0.5 0.5 0.8 50 0.7
+
+
+# Plane for ground (asphalt)
+pln 0 1 0 -1 4
+
+# Buildings (boxes)
+# Building 1
+box -8 2 10 4 2
+# Building 2
+box 0 3 15 6 2
+# Building 3
+box 8 4 10 8 2
+# Building 4
+box -12 5 5 10 2
+# Building 5
+box 12 3 5 6 2
+# Building 6
+box -5 2 18 4 2
+# Building 7
+box 5 3 20 6 2
+# Building 8
+box 0 4 25 8 2
+
+# Spheres (streetlights)
+sph -7 5 10 0.3 3
+sph -1 6 15 0.3 3
+sph 7 7 10 0.3 3
+sph -11 8 5 0.3 3
+sph 11 6 5 0.3 3
+sph -4 5 18 0.3 3
+sph 4 6 20 0.3 3
+sph 0 7 25 0.3 3
+
+# Lights
+# Streetlight 1
+lgt -7 6 10 1 1 0.8 0.5 1 1
+# Streetlight 2
+lgt -1 7 15 1 1 0.8 0.5 1 1
+# Streetlight 3
+lgt 7 8 10 1 1 0.8 0.5 1 1
+# Streetlight 4
+lgt -11 9 5 1 1 0.8 0.5 1 1
+# Streetlight 5
+lgt 11 7 5 1 1 0.8 0.5 1 1
+# Streetlight 6
+lgt -4 6 18 1 1 0.8 0.5 1 1
+# Streetlight 7
+lgt 4 7 20 1 1 0.8 0.5 1 1
+# Streetlight 8
+lgt 0 8 25 1 1 0.8 0.5 1 1
+
+# Additional random objects for complexity
+# Sphere in front of Building 3
+sph 8 1 10 1 1
+# Small box next to Building 5
+box 10 1 6 2 5
+# Sphere on top of Building 2
+sph 0 7 15 1 5

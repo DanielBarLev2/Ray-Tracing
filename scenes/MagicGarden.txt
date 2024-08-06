@@ -1,0 +1,39 @@
+# Camera: 	px   	py   	pz 	 lx  	ly  	lz 	 ux  	uy  	uz 	sc_dist	sc_width
+cam 	    0   	5	    -15 	 0   	0   	0  	 0   	1   	0  	1.4	    1
+
+# Settings: 	bgr  	bgg  	bgb	 sh_rays	rec_max
+set 		    0.2	    0.6	    1    5 	        3
+
+# Material:	dr    	dg    	db	    sr   	sg   	sb  	rr   	rg  	rb	    phong 	trans
+# 1 - Transparent blue with tiny white specular color. reflections are tinted light blue.
+mtl	        0.1	    0.3	    0.8	    0.9	    0.9	    0.9	    0.3	    0.6	    0.8	    50	    0.7
+# 2 - Opaque green with no specular.
+mtl	        0.2	    0.8	    0.2	    0	    0	    0	    0.2	    0.8	    0.2	    20	    0
+# 3 - Reflective gold.
+mtl	        1	    0.84	0	    1	    0.84	0	    1	    0.84	0	    100	    0
+# 4 - Matte red with no reflections.
+mtl	        0.8	    0.1	    0.1	    0	    0	    0	    0	    0	    0	    10	    0
+# 5 - Opaque purple with white specular and no reflections.
+mtl	        0.6	    0.1	    0.7	    0.9	    0.9	    0.9	    0	    0	    0	    70	    0
+# 6 - Transparent glass with no color.
+mtl	        0.9	    0.9	    0.9	    1	    1	    1	    1	    1	    1	    200	    1
+
+# Plane:	nx	ny	nz	offset	mat_idx
+pln		    0	1	0	-5	    2
+
+# Boxes:      cx      cy      cz      scale   mat_index
+# Base layer:
+box         -2       -4      4       2       3
+box         2        -4      4       2       4
+# Middle layer:
+box         0        -2      4       2       5
+
+# Spheres:	cx   	cy   	cz  	radius 	mat_idx
+sph         -2       -1       8      1.5     1
+sph         2        -1       8      1.5     6
+sph         0         3       2      1       5
+
+# Lights:	px	py	pz	r	g	b	spec	shadow	width
+lgt		    0	20	-10	1	1	1	1	    0.9	    10
+lgt		    -10	10	10	1	0.8	0.6	1	    0.9	    5
+lgt		    10	10	10	1	0.6	0.8	1	    0.9	    5

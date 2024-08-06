@@ -1,5 +1,5 @@
-from abc import ABC, abstractmethod
 from util import *
+from abc import ABC, abstractmethod
 
 
 class SurfaceAbs(ABC):
@@ -46,8 +46,8 @@ def get_surfaces_normals(surfaces: list, surfaces_indices: np.ndarray, ray_hits:
     normals = np.zeros_like(ray_hits)
 
     for idx in np.unique(surfaces_indices):
-        # if idx == -1:  # todo: bg - handle this case.
-        #     continue
+        if idx < 0 or idx >= len(surfaces):
+            continue
         surface: SurfaceAbs = surfaces[idx]
         mask = (surfaces_indices == idx)
         rays_interactions_with_surface = ray_hits[mask]
@@ -57,11 +57,13 @@ def get_surfaces_normals(surfaces: list, surfaces_indices: np.ndarray, ray_hits:
 
 
 def get_surfaces_material_indices(surfaces: list, surfaces_indices: np.ndarray) -> np.ndarray:
-    material_indies = np.zeros_like(surfaces_indices)
+    material_indices = np.zeros_like(surfaces_indices)
 
     for idx in np.unique(surfaces_indices):
+        if idx < 0 or idx >= len(surfaces):
+            continue
         surface: SurfaceAbs = surfaces[idx]
         mask = (surfaces_indices == idx)
-        material_indies[mask] = surface.get_material_index()
+        material_indices[mask] = surface.get_material_index()
 
-    return material_indies
+    return material_indices

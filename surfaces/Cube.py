@@ -1,4 +1,3 @@
-import numpy as np
 from util import *
 from surfaces.Object3D import Object3D
 
@@ -99,7 +98,7 @@ class Cube(Object3D):
 
         # Check for valid intersections
         valid_intersections = t_near < t_far
-        valid_intersections &= t_far > 0
+        valid_intersections &= t_near > 0
 
         # Calculate intersection points
         intersections = rays_sources + t_near[..., None] * rays_directions
@@ -150,8 +149,8 @@ class Cube(Object3D):
         """
         Calculate the normal vectors for given points on the surface of the cube.
 
-        :param rays_interactions: An ndarray of points on the surface of the cube (shape: Nx3).
-        :return: An ndarray of normal vectors at the given points on the surface of the cube (shape: Nx3).
+        :param rays_interactions: A ndarray of points on the surface of the cube (shape: Nx3).
+        :return: A ndarray of normal vectors at the given points on the surface of the cube (shape: Nx3).
         """
         # Calculate the distance from the points to each face center
         dist_right = np.linalg.norm(rays_interactions - self.right, axis=1)
