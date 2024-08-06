@@ -43,7 +43,6 @@ class SurfaceAbs(ABC):
 
 
 def get_surfaces_normals(surfaces: list, surfaces_indices: np.ndarray, ray_hits: np.ndarray) -> np.ndarray:
-
     normals = np.zeros_like(ray_hits)
 
     for idx in np.unique(surfaces_indices):
@@ -57,8 +56,7 @@ def get_surfaces_normals(surfaces: list, surfaces_indices: np.ndarray, ray_hits:
     return normals
 
 
-def get_surfaces_material_indies(surfaces: list, surfaces_indices: np.ndarray) -> np.ndarray:
-
+def get_surfaces_material_indices(surfaces: list, surfaces_indices: np.ndarray) -> np.ndarray:
     material_indies = np.zeros_like(surfaces_indices)
 
     for idx in np.unique(surfaces_indices):
