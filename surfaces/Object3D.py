@@ -24,4 +24,4 @@ class Object3D(SurfaceAbs, ABC):
         # Transform the coordinates
         camera_coords = np.dot(view_matrix, homogeneous_surface_coords)
 
-        return camera_coords[:3]
+        return camera_coords[:3]/camera_coords[3]
