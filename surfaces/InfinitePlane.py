@@ -5,8 +5,9 @@ from surfaces.SurfaceAbs import SurfaceAbs
 class InfinitePlane(SurfaceAbs):
     def __init__(self, normal, offset, material_index, index):
         super().__init__(material_index, index)
-        self.normal = np.array(normal) / np.linalg.norm(normal)
-        self.offset = offset
+        normal_norm = np.linalg.norm(normal)
+        self.normal = np.array(normal) / normal_norm
+        self.offset = -offset / normal_norm
 
     def __repr__(self):
         return f"{super().__repr__()}, normal={self.normal.tolist()}, offset={self.offset}"
@@ -19,9 +20,12 @@ class InfinitePlane(SurfaceAbs):
         :param view_matrix: shifts and rotates the world coordinates to be aligned and centered on the camera.
         :return:
         """
-        self.normal = np.dot(view_matrix[:3, :3], self.normal)
-        self.normal = np.array(self.normal) / np.linalg.norm(self.normal)  # normalize
-        self.offset = -self.offset - np.dot(self.normal, view_matrix[:3, 3])
+
+        plain_view_matrix = np.linalg.inv(view_matrix).T
+        normal = np.dot(plain_view_matrix, np.append(self.normal, self.offset))
+        norm = np.linalg.norm(normal[:3])
+        self.normal = normal[:3] / norm
+        self.offset = normal[3] / norm
 
     def intersect(self, ray_source: np.ndarray, ray_direction: np.ndarray) -> np.ndarray | None:
         """
@@ -53,33 +57,50 @@ class InfinitePlane(SurfaceAbs):
         else:
             return None
 
-    def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray) -> np.ndarray:
-        """
-        Computes the intersection between multiple rays and the plane. using vectorized operations.
+    # def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray) -> np.ndarray:
+    #     """
+    #     Computes the intersection between multiple rays and the plane. using vectorized operations.
+    #
+    #     :param rays_sources: matrix of ray source coordinates.
+    #     :param rays_directions: matrix of ray direction coordinates.
+    #     :return: matrix the of points in space where intersection between ray and the plane occurs.
+    #     Entries are None where no intersection occurs.
+    #     """
+    #     rays_directions = rays_directions / np.linalg.norm(rays_directions, axis=2)[:, :, np.newaxis]
+    #
+    #     intersection_angles = np.dot(rays_directions, self.normal)
+    #
+    #     intersection_points = np.dot(rays_sources, self.normal) + self.offset
+    #     valid_intersection_position = 1e-12 <= np.abs(intersection_angles)
+    #
+    #     intersections = np.full_like(rays_sources, np.nan)
+    #
+    #     # Where valid, compute the scale
+    #     scale = np.where(valid_intersection_position, - (intersection_points / intersection_angles), np.nan)
+    #
+    #     # Calculate intersection points where scale is non-negative
+    #     valid_intersection = valid_intersection_position & (0 <= scale)
+    #     intersections[valid_intersection] = (rays_sources[valid_intersection]
+    #                                          + scale[valid_intersection][:, np.newaxis]
+    #                                          * rays_directions[valid_intersection])
+    #     return intersections
 
-        :param rays_sources: matrix of ray source coordinates.
-        :param rays_directions: matrix of ray direction coordinates.
-        :return: matrix the of points in space where intersection between ray and the plane occurs.
-        Entries are None where no intersection occurs.
-        """
-        rays_directions = rays_directions / np.linalg.norm(rays_directions, axis=2)[:, :, np.newaxis]
+    def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray):
+        P0 = rays_sources
+        V = rays_directions
+        N = self.normal
+        d = self.offset
 
-        intersection_angles = np.dot(rays_directions, self.normal)
+        P0_dot_N = np.dot(P0, N)
+        V_dot_N = np.dot(V, N)
+        t = (-(P0_dot_N + d) / V_dot_N)
 
-        intersection_points = np.dot(rays_sources, self.normal) + self.offset
-        valid_intersection_position = 1e-12 <= np.abs(intersection_angles)
+        P = P0 + t[:, np.newaxis] * V
 
-        intersections = np.full_like(rays_sources, np.nan)
+        invalid = (t < 0) | (V_dot_N >= 0) | np.isnan(t)
 
-        # Where valid, compute the scale
-        scale = np.where(valid_intersection_position, - (intersection_points / intersection_angles), np.nan)
-
-        # Calculate intersection points where scale is non-negative
-        valid_intersection = valid_intersection_position & (0 <= scale)
-        intersections[valid_intersection] = (rays_sources[valid_intersection]
-                                             + scale[valid_intersection][:, np.newaxis]
-                                             * rays_directions[valid_intersection])
-        return intersections
+        P[invalid] = np.nan
+        return P
 
     def calculate_normal(self, point: np.ndarray) -> np.ndarray:
         return self.normal
