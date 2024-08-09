@@ -71,13 +71,13 @@ class Sphere(Object3D):
         :return: matrix the of points in space where intersection between ray and the sphere occurs.
         Entries are None where no intersection occurs.
         """
-        rays_directions = rays_directions / np.linalg.norm(rays_directions, axis=2)[:, :, np.newaxis]
+        rays_directions = rays_directions / np.linalg.norm(rays_directions, axis=-1)[:, np.newaxis]
 
         # Calculate coefficients for the quadratic formula
         p0_minus_O = rays_sources - self.position
-        a = np.sum(rays_directions * rays_directions, axis=2)
-        b = 2 * np.sum(rays_directions * p0_minus_O, axis=2)
-        c = np.sum(p0_minus_O * p0_minus_O, axis=2) - self.radius ** 2
+        a = np.sum(rays_directions * rays_directions, axis=-1)
+        b = 2 * np.sum(rays_directions * p0_minus_O, axis=-1)
+        c = np.sum(p0_minus_O * p0_minus_O, axis=-1) - self.radius ** 2
 
         discriminant = b ** 2 - 4 * a * c
 
@@ -104,10 +104,10 @@ class Sphere(Object3D):
         valid_scales_indices = np.where(valid_scale)
 
         selected_scales = scale_min[valid_scales_indices]
-        intersections[valid_indices[0][valid_scales_indices], valid_indices[1][valid_scales_indices], :] = \
-            (rays_sources[valid_indices[0][valid_scales_indices], valid_indices[1][valid_scales_indices], :]
+        intersections[valid_indices[0][valid_scales_indices]] = \
+            (rays_sources[valid_indices[0][valid_scales_indices]]
              + selected_scales[:, np.newaxis]
-             * rays_directions[valid_indices[0][valid_scales_indices], valid_indices[1][valid_scales_indices], :])
+             * rays_directions[valid_indices[0][valid_scales_indices]])
         return intersections
 
     def calculate_normal(self, point: np.ndarray) -> np.ndarray:
