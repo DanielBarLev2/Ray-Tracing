@@ -4,7 +4,7 @@ import numpy as np
 from Camera import Camera
 
 
-def get_ray_vectors(camera: Camera, rays_sources: np.ndarray, image_width: int, image_height: int) -> np.ndarray:
+def get_initial_rays(camera: Camera, image_width: int, image_height: int) -> tuple[np.ndarray, np.ndarray]:
     """
     Generates a 3D array of ray vectors for each pixel in the specified image dimensions based on the camera settings.
     :param camera: the camera object with properties defining its screen size and distance.
@@ -21,23 +21,25 @@ def get_ray_vectors(camera: Camera, rays_sources: np.ndarray, image_width: int, 
 
     screen_center = camera.position + camera.z_dir * camera.screen_distance
     screen_pixel_0_0 = screen_center + ((h - h_granularity) / 2 * camera.y_dir) - (
-                (w - w_granularity) / 2 * camera.x_dir)
+            (w - w_granularity) / 2 * camera.x_dir)
 
     i_indices = np.arange(image_height)
     j_indices = np.arange(image_width)
     jj, ii = np.meshgrid(j_indices, i_indices)
 
-    ray_destinations = (
+    rays_destinations = (
             screen_pixel_0_0
             - (ii[:, :, np.newaxis] * h_granularity * camera.y_dir)
             + (jj[:, :, np.newaxis] * w_granularity * camera.x_dir))
 
-    ray_vectors = ray_destinations - rays_sources
-    norms = np.linalg.norm(ray_vectors, axis=2, keepdims=True)
-    ray_vectors = ray_vectors / norms
-    ray_vectors = ray_vectors.reshape(-1, ray_vectors.shape[-1])
+    rays_destinations = rays_destinations.reshape((image_height * image_width, 3))
+    rays_sources = np.full((image_height * image_width, 3), camera.position)
 
-    return ray_vectors
+    rays_directions = rays_destinations - rays_sources
+    norms = np.linalg.norm(rays_directions, axis=-1, keepdims=True)
+    rays_directions = rays_directions / norms
+
+    return rays_sources, rays_directions
 
 
 def compute_rays_interactions(surfaces: list[SurfaceAbs],
@@ -114,9 +116,3 @@ def get_closest_hits(rays_sources: Matrix, rays_directions: Matrix, surfaces: li
         -> tuple[Matrix, Matrix]:
     rays_interactions, index_list = compute_rays_interactions(surfaces, rays_sources, rays_directions)
     return rays_interactions, index_list
-    if len(rays_interactions) == 0:
-        return np.zeros_like(rays_sources), np.zeros_like(rays_sources)
-    print(f"hits {len(rays_interactions)}")
-    res = compute_rays_hits(ray_sources=rays_sources, ray_interactions=rays_interactions, index_list=index_list)
-    ray_hits, surface_indices = res
-    return ray_hits, surface_indices
