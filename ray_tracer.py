@@ -2,6 +2,8 @@ from datetime import datetime
 
 import cv2
 import argparse
+
+from BSPNode import BSPNode
 from util import *
 from PIL import Image
 from Camera import Camera
@@ -89,6 +91,9 @@ def main():
     # Parse the scene file
     camera, scene_settings, objects = parse_scene_file(args.scene_file)
 
+    bsp_tree = BSPNode.build_bsp_tree(surfaces[4:])
+    print(bsp_tree)
+
     # 6.1.1: Discover the location of the pixel on the camera’s screen
     view_matrix = camera.create_view_matrix()
     camera.transform_to_camera(view_matrix=view_matrix)
@@ -131,6 +136,7 @@ def main():
     image_colors = (image_colors * 255).astype(np.uint8)
 
     print("done")
+
     bgr_image = cv2.cvtColor(image_colors, cv2.COLOR_RGB2BGR)
     cv2.imshow('RGB Image', bgr_image)
     cv2.waitKey(0)
