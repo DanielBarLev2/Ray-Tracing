@@ -66,13 +66,14 @@ class Sphere(Object3D):
         """
         Computes the intersection between multiple rays and the sphere. using vectorized operations.
 
-        :param rays_sources: matrix of ray source coordinates
-        :param rays_directions: matrix of ray direction coordinates
-        :return: matrix the of points in space where intersection between ray and the sphere occurs.
-        Entries are None where no intersection occurs.
-        """
-        rays_directions = rays_directions / np.linalg.norm(rays_directions, axis=-1)[:, np.newaxis]
+        :param rays_sources: N,3 matrix of ray source coordinates
+        :param rays_directions: N,3 matrix of ray direction coordinates
+        :return: N,3 matrix of points in space where intersection between ray and the sphere occurs.
+        Entries are np.NaN where no intersection occurs.
 
+        @pre: rays_directions are normalized.
+              np.all(np.isclose(np.linalg.norm(rays_directions, axis=-1, keepdims=True), 1.0, atol=EPSILON))
+        """
         # Calculate coefficients for the quadratic formula
         p0_minus_O = rays_sources - self.position
         a = np.sum(rays_directions * rays_directions, axis=-1)
@@ -82,17 +83,18 @@ class Sphere(Object3D):
         discriminant = b ** 2 - 4 * a * c
 
         # Initialize intersection points array with NaNs
-        intersections = np.full(rays_sources.shape, np.nan)
+        intersections = np.full(rays_sources.shape, np.NaN)
 
         # Only proceed where the discriminant is non-negative
-        valid = 0 <= discriminant
+        valid_discriminant = 0 <= discriminant
 
-        sqrt_discriminant = np.sqrt(discriminant[valid])
-        a_valid = a[valid]
-        b_valid = b[valid]
+        sqrt_discriminant = np.sqrt(discriminant[valid_discriminant])
+        a_valid = a[valid_discriminant]
+        b_valid = b[valid_discriminant]
+        denominator = 1 / (2 * a_valid)
 
-        scale1 = (-b_valid - sqrt_discriminant) / (2 * a_valid)
-        scale2 = (-b_valid + sqrt_discriminant) / (2 * a_valid)
+        scale1 = (-b_valid - sqrt_discriminant) * denominator
+        scale2 = (-b_valid + sqrt_discriminant) * denominator
 
         # Choose the smallest positive scale
         scale_min = np.where(scale1 < scale2, scale1, scale2)
@@ -100,14 +102,12 @@ class Sphere(Object3D):
         valid_scale = scale_min >= 0
 
         # Compute the intersection points for valid rays
-        valid_indices = np.where(valid)
+        valid_discriminant_indices = np.where(valid_discriminant)
         valid_scales_indices = np.where(valid_scale)
+        valid_indices = valid_discriminant_indices[0][valid_scales_indices]
 
-        selected_scales = scale_min[valid_scales_indices]
-        intersections[valid_indices[0][valid_scales_indices]] = \
-            (rays_sources[valid_indices[0][valid_scales_indices]]
-             + selected_scales[:, np.newaxis]
-             * rays_directions[valid_indices[0][valid_scales_indices]])
+        selected_scales = scale_min[valid_scales_indices][:, np.newaxis]
+        intersections[valid_indices] = rays_sources[valid_indices] + selected_scales * rays_directions[valid_indices]
         return intersections
 
     def calculate_normal(self, point: np.ndarray) -> np.ndarray:

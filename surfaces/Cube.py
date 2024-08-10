@@ -78,30 +78,14 @@ class Cube(Object3D):
 
     def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray) -> np.ndarray:
         """
-        Computes the intersection between multiple rays and the box using vectorized operations.
-        :param rays_sources: Nx3 matrix of ray source coordinates.
-        :param rays_directions: Nx3 matrix of ray direction coordinates.
-        :return: Nx3 matrix of points in space where intersections between rays and the box occur.
+        Computes the intersection between multiple rays and the axis aligned box using vectorized operations.
+        :param rays_sources: N,3 matrix of ray source coordinates.
+        :param rays_directions: N,3 matrix of ray direction coordinates.
+        :return: N,3 matrix of points in space where intersections between rays and the box occur.
         Entries are np.nan where no intersection occurs.
-        """
-        # Transform rays to the box's local coordinate system
-        # local_rays_sources = self.transform_to_local_coordinates(rays_sources)
-        # local_rays_directions = self.transform_direction_to_local(rays_directions)
 
-        # Compute intersections in the local coordinate system
-        intersections = self._intersect_local_box(rays_sources,rays_directions)
-
-        # Transform intersections back to the original coordinate system
-        # intersections = self.transform_to_original_coordinates(intersections_local)
-
-        return intersections
-
-    def _intersect_local_box(self, rays_sources: np.ndarray, rays_directions: np.ndarray) -> np.ndarray:
-        """
-        Computes intersections between rays and an axis-aligned box in the local coordinate system.
-        :param rays_sources: Nx3 matrix of ray source coordinates in local coordinates.
-        :param rays_directions: Nx3 matrix of ray direction coordinates in local coordinates.
-        :return: Nx3 matrix of intersection points in local coordinates.
+        @pre: rays_directions are normalized.
+              np.all(np.isclose(np.linalg.norm(rays_directions, axis=-1, keepdims=True), 1.0, atol=EPSILON))
         """
         # Initialize parameters
         inv_dir = np.where(rays_directions != 0, 1.0 / rays_directions, np.inf)
@@ -117,50 +101,17 @@ class Cube(Object3D):
         t2 = np.maximum(t_min, t_max)
 
         # Calculate the maximum t_min and minimum t_max
-        t_near = np.max(t1, axis=-1)
-        t_far = np.min(t2, axis=-1)
+        t_near = np.max(t1, axis=-1, keepdims=True)
+        t_far = np.min(t2, axis=-1, keepdims=True)
 
         # Check for valid intersections
         valid_intersections = t_near < t_far
         valid_intersections &= t_near > 0
 
         # Calculate intersection points
-        intersections_local = np.where(valid_intersections[:, np.newaxis],
-                                       rays_sources + t_near[:, np.newaxis] * rays_directions,
-                                       np.nan)
+        intersections = np.where(valid_intersections, rays_sources + t_near * rays_directions, np.nan)
 
-        return intersections_local
-
-    def transform_to_local_coordinates(self, coords: np.ndarray) -> np.ndarray:
-        """
-        Transforms 3D coordinates to the local coordinate system of the box.
-        :param coords: Nx3 matrix of coordinates in world coordinates.
-        :return: Nx3 matrix of coordinates in the box's local coordinate system.
-        """
-        homogeneous_coords = np.hstack((coords, np.ones((coords.shape[0], 1))))
-        local_coords_homogeneous = homogeneous_coords @ self.inv_transformation_matrix.T
-        return local_coords_homogeneous[:, :3] / (local_coords_homogeneous[:, 3, np.newaxis] + 1e-10)
-
-    def transform_direction_to_local(self, directions: np.ndarray) -> np.ndarray:
-        """
-        Transforms ray direction vectors to the local coordinate system of the box.
-        :param directions: Nx3 matrix of ray direction vectors in world coordinates.
-        :return: Nx3 matrix of ray direction vectors in the box's local coordinate system.
-        """
-        homogeneous_directions = np.hstack((directions, np.zeros((directions.shape[0], 1))))
-        local_directions_homogeneous = homogeneous_directions @ self.inv_transformation_matrix.T
-        return local_directions_homogeneous[:, :3] / np.linalg.norm(local_directions_homogeneous[:, :3], axis=-1,
-                                                                    keepdims=True)
-
-    def transform_to_original_coordinates(self, coords: np.ndarray) -> np.ndarray:
-        """
-        Transforms coordinates back to the original coordinate system.
-        :param coords: Nx3 matrix of coordinates in the box's local coordinate system.
-        :return: Nx3 matrix of coordinates in world coordinates.
-        """
-        homogeneous_coords = np.hstack((coords, np.ones((coords.shape[0], 1))))
-        original_coords_homogeneous = homogeneous_coords @ self.transformation_matrix.T
-        return original_coords_homogeneous[:, :3] / (original_coords_homogeneous[:, 3, np.newaxis] + 1e-10)
+        return intersections
 
     def calculate_normal(self, point: np.ndarray) -> np.ndarray:
         """
