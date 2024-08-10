@@ -47,3 +47,17 @@ def normalize_to_color(matrix):
     scaled_matrix[nan_mask] = 255  # or any other value to represent NaNs
 
     return scaled_matrix
+
+
+def diagonalize_vectors(vector1: Vector, vector2: Vector):
+    # normalize the first vector
+    vector1 = vector1 / np.linalg.norm(vector1)
+
+    vector2_projection = np.sum(vector1 * vector2, axis=-1, keepdims=True)
+    vector2 = vector2 - vector2_projection * vector1
+    vector2 = vector2 / (np.linalg.norm(vector2, axis=-1, keepdims=True) + EPSILON)
+
+    vector3 = np.cross(vector2, vector1)
+    vector3 = vector3 / np.linalg.norm(vector3)
+
+    return vector1, vector2, vector3

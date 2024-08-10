@@ -9,6 +9,7 @@ class Camera:
         self.screen_distance = screen_distance
         self.screen_width = screen_width
         self.look_direction = self.look_at - self.position
+        self.z_dir, self.y_dir, self.x_dir = diagonalize_vectors(self.look_direction, self.up_vector)
         self.view_mat = None
 
     def __repr__(self):
@@ -35,12 +36,7 @@ class Camera:
         :return: view_matrix that defines the camera as (0, 0, 0) in world coordinates.
         """
         forward = self.look_at - self.position
-        forward = forward / np.linalg.norm(forward)
-
-        right = np.cross(self.up_vector, forward)
-        right = right / np.linalg.norm(right)
-
-        up = np.cross(forward, right)
+        forward, up, right = diagonalize_vectors(forward, self.up_vector)
 
         view_matrix = np.array([[right[0], right[1], right[2], -np.dot(right, self.position)],
                                 [up[0], up[1], up[2], -np.dot(up, self.position)],

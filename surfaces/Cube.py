@@ -5,13 +5,16 @@ from surfaces.Object3D import Object3D
 class Cube(Object3D):
     def __init__(self, position, scale, material_index, index):
         super().__init__(material_index, index)
-        self.position = position
+        self.position = np.array(position)
+        self.orig_position = np.array(position)
         self.scale = scale
-        half_scale = scale/2
+        half_scale = scale / 2
         directions = np.array([X_DIRECTION, Y_DIRECTION, Z_DIRECTION])
         face_centers = np.array([position + half_scale * directions,
                                  position - half_scale * directions]).reshape(-1, 3)
-        self.right, self.left, self.up, self.down, self.forward, self.backward = face_centers
+        self.right, self.up, self.forward, self.left, self.down, self.backward = face_centers
+        self.transformation_matrix = None
+        self.inv_transformation_matrix = None
 
     def __repr__(self):
         return f"Cube(position={self.position.tolist()}, scale={self.scale}, material_index={self.material_index})"
@@ -22,6 +25,8 @@ class Cube(Object3D):
         :param view_matrix: shifts and rotates the world coordinates to be aligned and centered on the camera.
         :return:
         """
+        self.transformation_matrix = view_matrix
+        self.inv_transformation_matrix = np.linalg.inv(view_matrix)
         self.position = super().transform_to_camera_coordinates(self.position, view_matrix)
         self.right = super().transform_to_camera_coordinates(self.right, view_matrix)
         self.left = super().transform_to_camera_coordinates(self.left, view_matrix)
@@ -73,16 +78,19 @@ class Cube(Object3D):
 
     def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray) -> np.ndarray:
         """
-        Computes the intersection between multiple rays and the box using vectorized operations.
-        :param rays_sources: Nx3 matrix of ray source coordinates
-        :param rays_directions: Nx3 matrix of ray direction coordinates
-        :return: Nx3 matrix of points in space where intersections between rays and the box occur.
-        Entries are None where no intersection occurs.
+        Computes the intersection between multiple rays and the axis aligned box using vectorized operations.
+        :param rays_sources: N,3 matrix of ray source coordinates.
+        :param rays_directions: N,3 matrix of ray direction coordinates.
+        :return: N,3 matrix of points in space where intersections between rays and the box occur.
+        Entries are np.nan where no intersection occurs.
+
+        @pre: rays_directions are normalized.
+              np.all(np.isclose(np.linalg.norm(rays_directions, axis=-1, keepdims=True), 1.0, atol=EPSILON))
         """
         # Initialize parameters
-        inv_dir = 1.0 / rays_directions
-        bounds_min = self.position - self.scale / 2
-        bounds_max = self.position + self.scale / 2
+        inv_dir = np.where(rays_directions != 0, 1.0 / rays_directions, np.inf)
+        bounds_min = self.orig_position - self.scale / 2
+        bounds_max = self.orig_position + self.scale / 2
 
         # Calculate intersection times
         t_min = (bounds_min - rays_sources) * inv_dir
@@ -93,18 +101,15 @@ class Cube(Object3D):
         t2 = np.maximum(t_min, t_max)
 
         # Calculate the maximum t_min and minimum t_max
-        t_near = np.max(t1, axis=2)
-        t_far = np.min(t2, axis=2)
+        t_near = np.max(t1, axis=-1, keepdims=True)
+        t_far = np.min(t2, axis=-1, keepdims=True)
 
         # Check for valid intersections
         valid_intersections = t_near < t_far
         valid_intersections &= t_near > 0
 
         # Calculate intersection points
-        intersections = rays_sources + t_near[..., None] * rays_directions
-
-        # Mask invalid intersections
-        intersections[~valid_intersections] = np.nan
+        intersections = np.where(valid_intersections, rays_sources + t_near * rays_directions, np.nan)
 
         return intersections
 
@@ -167,12 +172,13 @@ class Cube(Object3D):
         # Create an array to hold the normal vectors
         normals = np.zeros(rays_interactions.shape)
 
+        dist_to_side = self.scale / 2
         # Assign the normal vectors based on the closest face
-        normals[min_indices == 0] = (self.right - self.position) / np.linalg.norm(self.right - self.position)
-        normals[min_indices == 1] = (self.left - self.position) / np.linalg.norm(self.left - self.position)
-        normals[min_indices == 2] = (self.up - self.position) / np.linalg.norm(self.up - self.position)
-        normals[min_indices == 3] = (self.down - self.position) / np.linalg.norm(self.down - self.position)
-        normals[min_indices == 4] = (self.forward - self.position) / np.linalg.norm(self.forward - self.position)
-        normals[min_indices == 5] = (self.backward - self.position) / np.linalg.norm(self.backward - self.position)
+        normals[min_indices == 0] = (self.right - self.position) / dist_to_side
+        normals[min_indices == 1] = (self.left - self.position) / dist_to_side
+        normals[min_indices == 2] = (self.up - self.position) / dist_to_side
+        normals[min_indices == 3] = (self.down - self.position) / dist_to_side
+        normals[min_indices == 4] = (self.forward - self.position) / dist_to_side
+        normals[min_indices == 5] = (self.backward - self.position) / dist_to_side
 
         return normals
