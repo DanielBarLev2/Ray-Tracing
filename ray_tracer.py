@@ -13,14 +13,17 @@ from surfaces.InfinitePlane import InfinitePlane
 from Material import Material, get_materials_base_colors
 from Light import Light, get_light_base_colors, compute_light_rays, compute_reflection_rays, compute_specular_colors, \
     compute_diffuse_color
-from ray_functions import get_ray_vectors, get_closest_hits
+from ray_functions import get_initial_rays, get_closest_hits
 from surfaces.SurfaceAbs import SurfaceAbs, get_surfaces_normals, get_surfaces_material_indices
 
 
 def parse_scene_file(file_path):
     index = 1
-    mat_index = 0
+    mat_index = 1
     objects_3D = []
+    surfaces: list[SurfaceAbs] = [Background()]
+    materials: list[Material] = []
+    lights: list[Light] = []
     camera = None
     scene_settings = None
     with open(file_path, 'r') as f:
@@ -35,29 +38,32 @@ def parse_scene_file(file_path):
                 camera = Camera(params[:3], params[3:6], params[6:9], params[9], params[10])
             elif obj_type == "set":
                 scene_settings = SceneSettings(params[:3], params[3], params[4])
+                materials.append(Material(diffuse_color=scene_settings.background_color, specular_color=[0, 0, 0],
+                                          reflection_color=[0, 0, 0], shininess=0, transparency=0, mat_index=0))
             elif obj_type == "mtl":
                 material = Material(params[:3], params[3:6], params[6:9], params[9], params[10], mat_index)
                 mat_index += 1
-                objects_3D.append(material)
+                materials.append(material)
             elif obj_type == "sph":
                 sphere = Sphere(params[:3], params[3], int(params[4]), index)
                 index += 1
-                objects_3D.append(sphere)
+                surfaces.append(sphere)
             elif obj_type == "pln":
                 plane = InfinitePlane(params[:3], params[3], int(params[4]), index)
                 index += 1
-                objects_3D.append(plane)
+                surfaces.append(plane)
             elif obj_type == "box":
                 cube = Cube(params[:3], params[3], int(params[4]), index)
                 index += 1
-                objects_3D.append(cube)
+                surfaces.append(cube)
             elif obj_type == "lgt":
                 light = Light(params[:3], params[3:6], params[6], params[7], params[8], index)
                 index += 1
-                objects_3D.append(light)
+                lights.append(light)
             else:
                 raise ValueError("Unknown object type: {}".format(obj_type))
-    return camera, scene_settings, objects_3D
+        materials.sort(key=lambda m: m.index)
+    return camera, scene_settings, objects_3D, surfaces, materials, lights
 
 
 def save_image(image_array: np.ndarray, path: str) -> None:
@@ -87,43 +93,13 @@ def main():
     args = parser.parse_args()
 
     # Parse the scene file
-    camera, scene_settings, objects = parse_scene_file(args.scene_file)
+    camera, scene_settings, objects, surfaces, materials, light_sources = parse_scene_file(args.scene_file)
 
     # 6.1.1: Discover the location of the pixel on the camera’s screen
-    # view_matrix = camera.create_view_matrix()
-    # camera.transform_to_camera(view_matrix=view_matrix)
-
-    surfaces: list[SurfaceAbs] = []
-    materials: list[Material] = []
-    light_sources: list[Light] = []
-
-    surfaces.append(Background())
-    materials.append(Material(diffuse_color=scene_settings.background_color,
-                              specular_color=[0, 0, 0],
-                              reflection_color=[0, 0, 0],
-                              shininess=0,
-                              transparency=0,
-                              mat_index=0))
-
-    for obj in objects:
-        if isinstance(obj, SurfaceAbs):
-            # obj.transform_to_camera(view_matrix=view_matrix)
-            surfaces.append(obj)
-
-        elif isinstance(obj, Light):
-            # obj.transform_to_camera(view_matrix=view_matrix)
-            light_sources.append(obj)
-
-        elif isinstance(obj, Material):
-            materials.append(obj)
-
     # 6.1.2: Construct a ray from the camera through that pixel
-    rays_sources = np.full((args.height, args.width, 3), camera.position)
-    rays_directions = get_ray_vectors(camera, rays_sources=rays_sources, image_width=args.width,
-                                      image_height=args.height)
-    rays_sources=rays_sources.reshape((args.height* args.width, 3))
-    # 6.2: Check the intersection of the ray with all surfaces in the scene
+    rays_sources, rays_directions = get_initial_rays(camera, image_width=args.width, image_height=args.height)
 
+    # 6.2: Check the intersection of the ray with all surfaces in the scene
     image_colors = ray_tracing(rays_sources=rays_sources, rays_directions=rays_directions, surfaces=surfaces,
                                materials=materials, lights=light_sources, scene=scene_settings, camera=camera)
 
@@ -159,34 +135,29 @@ def ray_tracing(rays_sources: np.ndarray,
     :param scene: a SceneSettings object containing settings for the scene, such as lighting, camera position, etc.
     :return:a 3D array representing the image result
     """
+    print(scene.max_recursions)
     if scene.max_recursions <= 0:
         return np.full_like(rays_sources, scene.background_color)
 
-    print(scene.max_recursions)
+    image_colors = np.full_like(rays_sources, scene.background_color)
     recursion_scene = SceneSettings(scene.background_color, scene.root_number_shadow_rays, scene.max_recursions - 1)
 
+    # 6.2: Check the intersection of the ray with all surfaces in the scene
     # 6.3: Find the nearest intersection of the ray. This is the surface that will be seen in the image
     ray_hits, surfaces_indices = get_closest_hits(rays_sources=rays_sources, rays_directions=rays_directions,
                                                   surfaces=surfaces)
 
-    image_colors = np.full_like(ray_hits, scene.background_color)
     bg_pixels = (surfaces_indices == 0)
-    if np.all(bg_pixels):
-        return image_colors
-
     ray_hits = ray_hits[~bg_pixels]
     rays_directions = rays_directions[~bg_pixels]
     surfaces_indices = surfaces_indices[~bg_pixels]
-    print(ray_hits.shape)
 
     surfaces_normals = get_surfaces_normals(surfaces=surfaces, surfaces_indices=surfaces_indices, ray_hits=ray_hits)
     material_indices = get_surfaces_material_indices(surfaces=surfaces, surfaces_indices=surfaces_indices)
     material_colors = get_materials_base_colors(materials=materials, material_indices=material_indices)
     obj_diffusive_colors, obj_specular_colors, phong, reflective_colors, transparency_values = material_colors
-    transparent_mask = (np.any(transparency_values != 0, axis=-1))
-    reflective_mask = (np.linalg.norm(reflective_colors, axis=-1) != 0)
 
-    # 6.4.1 Go over each light in the scene.
+    # 6.4.1: Go over each light in the scene.
     surfaces_to_lights_directions = compute_light_rays(ray_hits, lights)
     lights_diffusive, light_specular_intensity = get_light_base_colors(lights=lights,
                                                                        light_directions=surfaces_to_lights_directions,
@@ -207,9 +178,12 @@ def ray_tracing(rays_sources: np.ndarray,
                                               surface_normals=surfaces_normals,
                                               lights_specular_intensity=light_specular_intensity)
 
+    # Additive Colors:
+    # output_color = (background_color * transparency) + (diffuse + specular)*(~transparency) + reflection_color
     non_transparency_values = 1.0 - transparency_values
     base_colors = (diffusive_colors + specular_colors) * non_transparency_values
 
+    transparent_mask = (np.any(transparency_values != 0, axis=-1))
     go_through_colors = np.zeros_like(ray_hits)
     if np.any(transparent_mask):
         go_through_rays_directions = rays_directions[transparent_mask]
@@ -220,6 +194,7 @@ def ray_tracing(rays_sources: np.ndarray,
                                                           camera=camera)
     back_colors = go_through_colors * transparency_values
 
+    reflective_mask = (np.linalg.norm(reflective_colors, axis=-1) != 0)
     reflection = np.zeros_like(ray_hits)
     if np.any(reflective_mask):
         reflection_rays_directions = compute_reflection_rays(-rays_directions[reflective_mask],
@@ -233,7 +208,6 @@ def ray_tracing(rays_sources: np.ndarray,
 
     image_colors[~bg_pixels] = (back_colors + base_colors + reflection)
     image_colors[image_colors > 1] = 1
-    # add background
     return image_colors
 
 
