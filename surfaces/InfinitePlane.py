@@ -57,35 +57,18 @@ class InfinitePlane(SurfaceAbs):
         else:
             return None
 
-    # def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray) -> np.ndarray:
-    #     """
-    #     Computes the intersection between multiple rays and the plane. using vectorized operations.
-    #
-    #     :param rays_sources: matrix of ray source coordinates.
-    #     :param rays_directions: matrix of ray direction coordinates.
-    #     :return: matrix the of points in space where intersection between ray and the plane occurs.
-    #     Entries are None where no intersection occurs.
-    #     """
-    #     rays_directions = rays_directions / np.linalg.norm(rays_directions, axis=2)[:, :, np.newaxis]
-    #
-    #     intersection_angles = np.dot(rays_directions, self.normal)
-    #
-    #     intersection_points = np.dot(rays_sources, self.normal) + self.offset
-    #     valid_intersection_position = 1e-12 <= np.abs(intersection_angles)
-    #
-    #     intersections = np.full_like(rays_sources, np.nan)
-    #
-    #     # Where valid, compute the scale
-    #     scale = np.where(valid_intersection_position, - (intersection_points / intersection_angles), np.nan)
-    #
-    #     # Calculate intersection points where scale is non-negative
-    #     valid_intersection = valid_intersection_position & (0 <= scale)
-    #     intersections[valid_intersection] = (rays_sources[valid_intersection]
-    #                                          + scale[valid_intersection][:, np.newaxis]
-    #                                          * rays_directions[valid_intersection])
-    #     return intersections
-
     def intersect_vectorized(self, rays_sources: np.ndarray, rays_directions: np.ndarray):
+        """
+        Computes the intersection between multiple rays and the plain. using vectorized operations.
+
+        :param rays_sources: N,3 matrix of ray source coordinates
+        :param rays_directions: N,3 matrix of ray direction coordinates
+        :return: N,3 matrix of points in space where intersection between ray and the plain occurs.
+        Entries are np.NaN where no intersection occurs.
+
+        @pre: rays_directions are normalized.
+              np.all(np.isclose(np.linalg.norm(rays_directions, axis=-1, keepdims=True), 1.0, atol=EPSILON))
+        """
         P0 = rays_sources
         V = rays_directions
         N = self.normal
