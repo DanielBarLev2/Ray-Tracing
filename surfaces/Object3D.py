@@ -1,11 +1,12 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 import numpy as np
 from surfaces.SurfaceAbs import SurfaceAbs
 
 
 class Object3D(SurfaceAbs, ABC):
-    def __init__(self, material_index, index):
+    def __init__(self, position, material_index, index):
         super().__init__(material_index, index)
+        self.position = np.array(position)
 
     def __repr__(self):
         return f"{super().__repr__()}"
@@ -24,4 +25,10 @@ class Object3D(SurfaceAbs, ABC):
         # Transform the coordinates
         camera_coords = np.dot(view_matrix, homogeneous_surface_coords)
 
-        return camera_coords[:3]/camera_coords[3]
+        return camera_coords[:3] / camera_coords[3]
+
+    @abstractmethod
+    def get_enclosing_values(self):
+        """
+        :return: tuple with values of smallest and biggest x,y,z values of the object
+        """
