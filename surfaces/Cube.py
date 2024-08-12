@@ -1,12 +1,12 @@
+import time
+
 from util import *
 from surfaces.Object3D import Object3D
 
 
 class Cube(Object3D):
     def __init__(self, position, scale, material_index, index):
-        super().__init__(material_index, index)
-        self.position = np.array(position)
-        self.orig_position = np.array(position)
+        super().__init__(position, material_index, index)
         self.scale = scale
         half_scale = scale / 2
         directions = np.array([X_DIRECTION, Y_DIRECTION, Z_DIRECTION])
@@ -87,10 +87,17 @@ class Cube(Object3D):
         @pre: rays_directions are normalized.
               np.all(np.isclose(np.linalg.norm(rays_directions, axis=-1, keepdims=True), 1.0, atol=EPSILON))
         """
+        bounds_min = self.position - self.scale / 2
+        bounds_max = self.position + self.scale / 2
+        valid_mask, t_near = self.cube_intersection_mask(rays_sources, rays_directions, bounds_min, bounds_max)
+        intersections = np.where(valid_mask, rays_sources + t_near * rays_directions, np.nan)
+        return intersections
+
+    @staticmethod
+    def cube_intersection_mask(rays_sources: np.ndarray, rays_directions: np.ndarray, bounds_min, bounds_max,
+                               outside_hits_only=True) ->tuple[np.ndarray,np.ndarray]:
         # Initialize parameters
         inv_dir = np.where(rays_directions != 0, 1.0 / rays_directions, np.inf)
-        bounds_min = self.orig_position - self.scale / 2
-        bounds_max = self.orig_position + self.scale / 2
 
         # Calculate intersection times
         t_min = (bounds_min - rays_sources) * inv_dir
@@ -106,12 +113,12 @@ class Cube(Object3D):
 
         # Check for valid intersections
         valid_intersections = t_near < t_far
-        valid_intersections &= t_near > 0
+        if outside_hits_only:
+            valid_intersections &= t_near > 0
+        else:
+            valid_intersections &= t_far > 0
 
-        # Calculate intersection points
-        intersections = np.where(valid_intersections, rays_sources + t_near * rays_directions, np.nan)
-
-        return intersections
+        return valid_intersections, t_near
 
     def calculate_normal(self, point: np.ndarray) -> np.ndarray:
         """
@@ -182,3 +189,6 @@ class Cube(Object3D):
         normals[min_indices == 5] = (self.backward - self.position) / dist_to_side
 
         return normals
+
+    def get_enclosing_values(self):
+        return (self.position - self.scale / 2), (self.position + self.scale / 2)
