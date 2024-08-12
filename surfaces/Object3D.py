@@ -19,10 +19,8 @@ class Object3D(SurfaceAbs, ABC):
         :param view_matrix: shifts and rotates the world coordinates to be aligned and centered on the camera.
         :return: the (x, y, z) coordinates in camera coordinates.
         """
-        # Convert surface coordinates to homogeneous coordinates (add a 1 at the end)
         homogeneous_surface_coords = np.append(surface_coords, 1)
 
-        # Transform the coordinates
         camera_coords = np.dot(view_matrix, homogeneous_surface_coords)
 
         return camera_coords[:3] / camera_coords[3]

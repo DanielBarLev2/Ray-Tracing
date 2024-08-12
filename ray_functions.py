@@ -1,7 +1,7 @@
 from surfaces.SurfaceAbs import SurfaceAbs
+from Camera import Camera
 from util import *
 import numpy as np
-from Camera import Camera
 
 
 def get_initial_rays(camera: Camera, image_width: int, image_height: int) -> tuple[np.ndarray, np.ndarray]:
@@ -56,7 +56,7 @@ def compute_rays_interactions(surfaces: list[SurfaceAbs],
 
     :return: Tuple containing:
         - ray_interactions: ndarray of shape (N, 3) with the closest intersection points between rays and surfaces.
-        - index_list: ndarray of shape (N,) with indices of the surfaces that the rays intersected with.
+        - index_list: ndarray of shape (N, ) with indices of the surfaces that the rays intersected with.
     """
     closest_intersections = np.full_like(rays_directions, np.nan)
     closest_intersections_dist = np.full(rays_directions.shape[0], np.inf)

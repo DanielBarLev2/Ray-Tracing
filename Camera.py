@@ -65,6 +65,13 @@ class Camera:
         return camera_coords[:3]
 
     def transform_to_camera(self, view_matrix: np.ndarray):
+        """
+        Transform the surface's position and orientation to camera coordinates using a view matrix.
+        This method updates the surface's position to the camera's coordinate system and sets the look direction and
+        up vector to default values.
+       :param view_matrix: A numpy array of shape (4, 4) representing the view matrix used for transforming coordinates
+        to camera space.
+        """
         self.position = self.transform_to_camera_coordinates(self.position, view_matrix)
         self.look_direction = Z_DIRECTION
         self.up_vector = Y_DIRECTION

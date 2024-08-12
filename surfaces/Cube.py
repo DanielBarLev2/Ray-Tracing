@@ -1,7 +1,6 @@
-import time
-
-from util import *
 from surfaces.Object3D import Object3D
+from typing import Any
+from util import *
 
 
 class Cube(Object3D):
@@ -82,10 +81,10 @@ class Cube(Object3D):
         :param rays_sources: N,3 matrix of ray source coordinates.
         :param rays_directions: N,3 matrix of ray direction coordinates.
         :return: N,3 matrix of points in space where intersections between rays and the box occur.
-        Entries are np.nan where no intersection occurs.
+        Entries are np.None where no intersection occurs.
 
         @pre: rays_directions are normalized.
-              np.all(np.isclose(np.linalg.norm(rays_directions, axis=-1, keepdims=True), 1.0, atol=EPSILON))
+              np.all(np.is close(np.linalg.norm(rays_directions, axis=-1, keep dims=True), 1.0, atol=EPSILON))
         """
         bounds_min = self.position - self.scale / 2
         bounds_max = self.position + self.scale / 2
@@ -94,20 +93,38 @@ class Cube(Object3D):
         return intersections
 
     @staticmethod
-    def cube_intersection_mask(rays_sources: np.ndarray, rays_directions: np.ndarray, bounds_min, bounds_max,
-                               outside_hits_only=True) ->tuple[np.ndarray,np.ndarray]:
-        # Initialize parameters
+    def cube_intersection_mask(rays_sources: np.ndarray,
+                               rays_directions: np.ndarray,
+                               bounds_min, bounds_max,
+                               outside_hits_only=True) -> tuple[bool, Any]:
+        """
+        Calculate which rays intersect a given axis-aligned bounding box (AABB) and the parameter values of the nearest
+        intersection points.
+        This method determines whether each ray intersects a cube defined by its minimum and maximum bounds and
+        optionally restricts intersections to those occurring outside the source point.
+
+        :param rays_sources: A numpy array of shape (N, 3) representing the source points of N rays.
+        :param rays_directions:A numpy array of shape (N, 3) representing the direction vectors of N rays.
+        :param bounds_min:A numpy array of shape (3, ) representing the minimum coordinates of the AABB
+            (axis-aligned bounding box).
+        :param bounds_max:A numpy array of shape (3, ) representing the maximum coordinates of the AABB.
+        :param outside_hits_only: A boolean flag indicating whether to consider only intersections that occur in the
+        forward direction of the rays (default is True).
+
+        :return:
+            A tuple containing:
+            - A boolean numpy array of shape (N, ) indicating which rays intersect the AABB.
+            - A numpy array of shape (N, 1) containing the parameter values at which the nearest intersections
+             occur for each ray.
+        """
         inv_dir = np.where(rays_directions != 0, 1.0 / rays_directions, np.inf)
 
-        # Calculate intersection times
         t_min = (bounds_min - rays_sources) * inv_dir
         t_max = (bounds_max - rays_sources) * inv_dir
 
-        # Reorder t_min and t_max
         t1 = np.minimum(t_min, t_max)
         t2 = np.maximum(t_min, t_max)
 
-        # Calculate the maximum t_min and minimum t_max
         t_near = np.max(t1, axis=-1, keepdims=True)
         t_far = np.min(t2, axis=-1, keepdims=True)
 
@@ -172,14 +189,13 @@ class Cube(Object3D):
         dist_forward = np.linalg.norm(rays_interactions - self.forward, axis=1)
         dist_backward = np.linalg.norm(rays_interactions - self.backward, axis=1)
 
-        # Stack the distances to find the minimum distance
         dists = np.stack([dist_right, dist_left, dist_up, dist_down, dist_forward, dist_backward], axis=1)
         min_indices = np.argmin(dists, axis=1)
 
-        # Create an array to hold the normal vectors
         normals = np.zeros(rays_interactions.shape)
 
         dist_to_side = self.scale / 2
+
         # Assign the normal vectors based on the closest face
         normals[min_indices == 0] = (self.right - self.position) / dist_to_side
         normals[min_indices == 1] = (self.left - self.position) / dist_to_side
@@ -191,4 +207,7 @@ class Cube(Object3D):
         return normals
 
     def get_enclosing_values(self):
+        """
+        :return: tuple with values of smallest and biggest x,y,z values of the object
+        """
         return (self.position - self.scale / 2), (self.position + self.scale / 2)

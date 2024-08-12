@@ -1,6 +1,5 @@
-from util import *
-import numpy as np
 from surfaces.Object3D import Object3D
+import numpy as np
 
 
 class Sphere(Object3D):
@@ -71,7 +70,7 @@ class Sphere(Object3D):
         Entries are np.NaN where no intersection occurs.
 
         @pre: rays_directions are normalized.
-              np.all(np.isclose(np.linalg.norm(rays_directions, axis=-1, keepdims=True), 1.0, atol=EPSILON))
+              np.all(np.is close(np.linalg.norm(rays_directions, axis=-1, keep dims=True), 1.0, atol=EPSILON))
         """
         # Calculate coefficients for the quadratic formula
         p0_minus_O = rays_sources - self.position
@@ -81,10 +80,8 @@ class Sphere(Object3D):
 
         discriminant = b ** 2 - 4 * a * c
 
-        # Initialize intersection points array with NaNs
         intersections = np.full(rays_sources.shape, np.NaN)
 
-        # Only proceed where the discriminant is non-negative
         valid_discriminant = 0 <= discriminant
 
         sqrt_discriminant = np.sqrt(discriminant[valid_discriminant])
@@ -97,10 +94,10 @@ class Sphere(Object3D):
 
         # Choose the smallest positive scale
         scale_min = np.where(scale1 < scale2, scale1, scale2)
-        scale_min = np.where(scale_min < 0, np.maximum(scale1, scale2), scale_min)  # Ensure non-negative
+        scale_min = np.where(scale_min < 0, np.maximum(scale1, scale2), scale_min)
         valid_scale = scale_min >= 0
 
-        # Compute the intersection points for valid rays
+        # Compute the intersection points for valid rays, Ensure non-negative
         valid_discriminant_indices = np.where(valid_discriminant)
         valid_scales_indices = np.where(valid_scale)
         valid_indices = valid_discriminant_indices[0][valid_scales_indices]
@@ -110,12 +107,33 @@ class Sphere(Object3D):
         return intersections
 
     def calculate_normal(self, point: np.ndarray) -> np.ndarray:
+        """
+         Calculate the normal vector at a given point on the surface. This method computes the normal vector at
+         a specific point relative to the surface by normalizing the vector from the surface's position to the point.
+        :param point: A numpy array of shape (3, ) representing the coordinates of the point at which the normal vector
+         is to be calculated.
+        :return: A numpy array of shape (3, ) representing the normal vector at the specified point, normalized to unit
+         length.
+        """
         direction = (point - self.position)
         return direction / np.linalg.norm(direction)
 
     def calculate_normals(self, rays_interactions: np.ndarray) -> np.ndarray:
+        """
+         Calculate the normal vectors at multiple points of interaction with rays on the surface.
+         This method computes the normal vectors at each point where rays intersect the surface.
+         Each normal vector is calculated by normalizing the vector from the surface's position to each
+         intersection point.
+        :param rays_interactions: A numpy array of shape (N, 3) where N is the number of intersection points.
+         Each row represents the coordinates of an intersection point on the surface.
+        :return: A numpy array of shape (N, 3) containing the normal vectors at each intersection point. Each normal
+        vector is normalized to unit length.
+        """
         directions = (rays_interactions - self.position)
         return directions / np.linalg.norm(directions, axis=-1)[:, np.newaxis]
 
     def get_enclosing_values(self):
+        """
+        :return: tuple with values of smallest and biggest x,y,z values of the object
+        """
         return (self.position - self.radius), (self.position + self.radius)
