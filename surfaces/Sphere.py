@@ -5,8 +5,7 @@ from surfaces.Object3D import Object3D
 
 class Sphere(Object3D):
     def __init__(self, position, radius, material_index, index):
-        super().__init__(material_index, index)
-        self.position: Vector = np.array(position)
+        super().__init__(position, material_index, index)
         self.radius: float = radius
 
     def __repr__(self):
@@ -117,3 +116,6 @@ class Sphere(Object3D):
     def calculate_normals(self, rays_interactions: np.ndarray) -> np.ndarray:
         directions = (rays_interactions - self.position)
         return directions / np.linalg.norm(directions, axis=-1)[:, np.newaxis]
+
+    def get_enclosing_values(self):
+        return (self.position - self.radius), (self.position + self.radius)
