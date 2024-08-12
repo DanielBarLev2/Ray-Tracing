@@ -1,16 +1,16 @@
-from Parser import parse_args, parse_scene_file
-
 from Light import get_light_base_colors, compute_light_rays, compute_specular_colors, compute_diffuse_color
 from surfaces.SurfaceAbs import SurfaceAbs, get_surfaces_normals, get_surfaces_material_indices
 from ray_functions import get_initial_rays, compute_reflection_rays
-
 from Material import Material, get_materials_base_colors
+from Parser import parse_args, parse_scene_file
 from SceneSettings import SceneSettings
+from BSPNode import BSPNode
 from Camera import Camera
 from Light import Light
-
-from BSPNode import BSPNode
 from util import *
+import cProfile
+import pstats
+import re
 
 
 def main():
@@ -21,14 +21,13 @@ def main():
 
     bsp_tree = BSPNode.build_bsp_tree(surfaces=surfaces)
 
-    # 6.1.1: Discover the location of the pixel on the camera’s screen
-    # 6.1.2: Construct a ray from the camera through that pixel
+    # 6.1: Discover the location of the pixel on the camera’s screen, Construct a ray from the camera through that pixel
     rays_sources, rays_directions = get_initial_rays(camera, image_width=args.width, image_height=args.height)
 
     # 6.2: Check the intersection of the ray with all surfaces in the scene
     image_colors = ray_tracing(rays_sources=rays_sources, rays_directions=rays_directions, surfaces=surfaces,
                                materials=materials, lights=light_sources, scene=scene_settings, camera=camera,
-                               bsp_tree=bsp_tree).clip(0,1)
+                               bsp_tree=bsp_tree).clip(0, 1)
 
     # Save the output image
     save_image(image_array=image_colors, path=args.output_image, height=args.height, width=args.width)
@@ -60,9 +59,7 @@ def ray_tracing(rays_sources: np.ndarray,
 
     :return: A 2D ndarray of shape (H * W, 3) representing the image, with pixel colors computed from ray tracing.
     """
-
-    print(scene.max_recursions)
-    if scene.max_recursions <= 1:
+    if scene.max_recursions < 0:
         return np.full_like(rays_sources, scene.background_color)
 
     image_colors = np.full_like(rays_sources, scene.background_color)
@@ -88,7 +85,7 @@ def ray_tracing(rays_sources: np.ndarray,
                                                                        light_directions=surfaces_to_lights_directions,
                                                                        hits=ray_hits,
                                                                        shadow_rays_count=scene.root_number_shadow_rays,
-                                                                       up_vector=camera.y_dir,bsp_tree=bsp_tree)
+                                                                       bsp_tree=bsp_tree)
 
     # 6.4.2: Add the value it induces on the surface.
     diffusive_colors = compute_diffuse_color(obj_diffuse_color=obj_diffusive_colors,
@@ -104,7 +101,7 @@ def ray_tracing(rays_sources: np.ndarray,
                                               lights_specular_intensity=light_specular_intensity)
 
     # Additive Colors:
-    # output_color = (background_color * transparency) + (diffuse + specular)*(~transparency) + reflection_color
+    # output_color := (background_color * transparency) + (diffuse + specular)*(~transparency) + reflection_color
     non_transparency_values = 1.0 - transparency_values
     base_colors = (diffusive_colors + specular_colors) * non_transparency_values
 
@@ -137,4 +134,15 @@ def ray_tracing(rays_sources: np.ndarray,
 
 
 if __name__ == '__main__':
+    profiler = cProfile.Profile()
+    profiler.enable()
+
     main()
+
+    profiler.disable()
+    stats = pstats.Stats(profiler).sort_stats('time')
+
+    project_path = r'C:\Tau Software\Ray-Tracing'
+    escaped_project_path = re.escape(project_path)
+
+    stats.print_stats(escaped_project_path)

@@ -1,4 +1,3 @@
-import numpy as np
 from surfaces.Cube import Cube
 from surfaces.Object3D import Object3D
 from surfaces.SurfaceAbs import SurfaceAbs
@@ -44,7 +43,8 @@ class BSPNode:
     def __repr__(self, depth=0):
         indent = "  " * depth  # Create an indent based on the depth of the node
         surf_len = 0 if self.surfaces is None else len(self.surfaces)
-        repr_str = f"{indent}BSPNode(cut={self.cut:}, bounds=({self.small_bound}, {self.big_bound}), {surf_len} surfaces={self.surfaces}\n"
+        repr_str = (f"{indent}BSPNode(cut={self.cut:}, bounds=({self.small_bound}, {self.big_bound}),"
+                    f" {surf_len} surfaces={self.surfaces}\n")
         if self.left is not None:
             repr_str += self.left.__repr__(depth + 1)
         if self.right is not None:
