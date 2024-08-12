@@ -134,15 +134,11 @@ def ray_tracing(rays_sources: np.ndarray,
 
 
 if __name__ == '__main__':
-    profiler = cProfile.Profile()
-    profiler.enable()
-
+    # profiler = cProfile.Profile()
+    # profiler.enable()
     main()
-
-    profiler.disable()
-    stats = pstats.Stats(profiler).sort_stats('time')
-
-    project_path = r'C:\Tau Software\Ray-Tracing'
-    escaped_project_path = re.escape(project_path)
-
-    stats.print_stats(escaped_project_path)
+    # profiler.disable()
+    # stats = pstats.Stats(profiler).sort_stats('time')
+    # project_path = r'C:\Tau Software\Ray-Tracing'
+    # escaped_project_path = re.escape(project_path)
+    # stats.print_stats(escaped_project_path)
