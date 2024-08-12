@@ -1,104 +1,25 @@
-from datetime import datetime
+from Parser import parse_args, parse_scene_file
 
-import cv2
-import argparse
+from Light import get_light_base_colors, compute_light_rays, compute_specular_colors, compute_diffuse_color
+from surfaces.SurfaceAbs import SurfaceAbs, get_surfaces_normals, get_surfaces_material_indices
+from ray_functions import get_initial_rays, compute_reflection_rays
+
+from Material import Material, get_materials_base_colors
+from SceneSettings import SceneSettings
+from Camera import Camera
+from Light import Light
 
 from BSPNode import BSPNode
 from util import *
-from PIL import Image
-from Camera import Camera
-from surfaces.Cube import Cube
-from surfaces.Sphere import Sphere
-from SceneSettings import SceneSettings
-from surfaces.Background import Background
-from surfaces.InfinitePlane import InfinitePlane
-from Material import Material, get_materials_base_colors
-from Light import Light, get_light_base_colors, compute_light_rays, compute_reflection_rays, compute_specular_colors, \
-    compute_diffuse_color
-from ray_functions import get_initial_rays, get_closest_hits
-from surfaces.SurfaceAbs import SurfaceAbs, get_surfaces_normals, get_surfaces_material_indices
-
-
-def parse_scene_file(file_path):
-    index = 1
-    mat_index = 1
-    objects_3D = []
-    surfaces: list[SurfaceAbs] = [Background()]
-    materials: list[Material] = []
-    lights: list[Light] = []
-    camera = None
-    scene_settings = None
-    with open(file_path, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            parts = line.split()
-            obj_type = parts[0]
-            params = [float(p) for p in parts[1:]]
-            if obj_type == "cam":
-                camera = Camera(params[:3], params[3:6], params[6:9], params[9], params[10])
-            elif obj_type == "set":
-                scene_settings = SceneSettings(params[:3], params[3], params[4])
-                materials.append(Material(diffuse_color=scene_settings.background_color, specular_color=[0, 0, 0],
-                                          reflection_color=[0, 0, 0], shininess=0, transparency=0, mat_index=0))
-            elif obj_type == "mtl":
-                material = Material(params[:3], params[3:6], params[6:9], params[9], params[10], mat_index)
-                mat_index += 1
-                materials.append(material)
-            elif obj_type == "sph":
-                sphere = Sphere(params[:3], params[3], int(params[4]), index)
-                index += 1
-                surfaces.append(sphere)
-            elif obj_type == "pln":
-                plane = InfinitePlane(params[:3], params[3], int(params[4]), index)
-                index += 1
-                surfaces.append(plane)
-            elif obj_type == "box":
-                cube = Cube(params[:3], params[3], int(params[4]), index)
-                index += 1
-                surfaces.append(cube)
-            elif obj_type == "lgt":
-                light = Light(params[:3], params[3:6], params[6], params[7], params[8], index)
-                index += 1
-                lights.append(light)
-            else:
-                raise ValueError("Unknown object type: {}".format(obj_type))
-        materials.sort(key=lambda m: m.index)
-    return camera, scene_settings, objects_3D, surfaces, materials, lights
-
-
-def save_image(image_array: np.ndarray, path: str) -> None:
-    """
-
-    :param image_array:
-    :param path:
-    :return:
-    """
-    now = datetime.now()
-    date_str = now.strftime("%m-%d_%H-%M")
-    full_path = f"{path}/image_{date_str}.png"
-
-    # Convert the image array to an 8-bit unsigned integer array
-    image = Image.fromarray(np.uint8(image_array))
-
-    # Save the image
-    image.save(full_path)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Python Ray Tracer')
-    parser.add_argument('scene_file', type=str, help='Path to the scene file')
-    parser.add_argument('output_image', type=str, help='Name of the output image file')
-    parser.add_argument('--width', type=int, default=500, help='Image width')
-    parser.add_argument('--height', type=int, default=500, help='Image height')
-    args = parser.parse_args()
-
+    # Parse command line arguments
+    args = parse_args()
     # Parse the scene file
     camera, scene_settings, objects, surfaces, materials, light_sources = parse_scene_file(args.scene_file)
 
-    bsp_tree = BSPNode.build_bsp_tree(surfaces[4:])
-    print(bsp_tree)
+    bsp_tree = BSPNode.build_bsp_tree(surfaces=surfaces)
 
     # 6.1.1: Discover the location of the pixel on the camera’s screen
     # 6.1.2: Construct a ray from the camera through that pixel
@@ -106,19 +27,11 @@ def main():
 
     # 6.2: Check the intersection of the ray with all surfaces in the scene
     image_colors = ray_tracing(rays_sources=rays_sources, rays_directions=rays_directions, surfaces=surfaces,
-                               materials=materials, lights=light_sources, scene=scene_settings, camera=camera)
-
-    image_colors = image_colors.reshape((args.height, args.width, 3))
-    image_colors = (image_colors * 255).astype(np.uint8)
-
-    print("done")
-
-    bgr_image = cv2.cvtColor(image_colors, cv2.COLOR_RGB2BGR)
-    cv2.imshow('RGB Image', bgr_image)
-    cv2.waitKey(0)
+                               materials=materials, lights=light_sources, scene=scene_settings, camera=camera,
+                               bsp_tree=bsp_tree).clip(0,1)
 
     # Save the output image
-    save_image(image_array=image_colors, path=args.output_image)
+    save_image(image_array=image_colors, path=args.output_image, height=args.height, width=args.width)
 
 
 def ray_tracing(rays_sources: np.ndarray,
@@ -126,23 +39,30 @@ def ray_tracing(rays_sources: np.ndarray,
                 surfaces: list[SurfaceAbs],
                 materials: list[Material],
                 lights: list[Light],
-                scene: SceneSettings, camera: Camera):
+                scene: SceneSettings, camera: Camera, bsp_tree: BSPNode):
     """
-    Performs ray tracing for a given set of initial rays, calculating interactions with objects,
-    and computing both reflected and go-through ray directions.
-    This function is designed to handle the interaction of rays with infinite planes, spheres and cubes.
+    Performs ray tracing to compute the color of each pixel in the image by simulating ray-object interactions.
 
-    :param camera:
-    :param rays_sources: matrix of ray source coordinates.
-    :param rays_directions: matrix of ray direction coordinates.
-    :param surfaces: a list of 3d objects. used to fetch normals and calculate reflections.
-    :param materials: a list of object materials.
-    :param lights: a list of light sources in the scene.
-    :param scene: a SceneSettings object containing settings for the scene, such as lighting, camera position, etc.
-    :return:a 3D array representing the image result
+    This function handles ray interactions with surfaces including infinite planes, spheres, and cubes.
+    It traces rays through the scene, calculates intersections with objects, and computes color contributions
+    from diffuse and specular lighting, reflection, and transparency.
+
+    :param rays_sources: ndarray of shape (N, 3) representing the source coordinates of N rays.
+    :param rays_directions: ndarray of shape (N, 3) representing the direction vectors of N rays.
+    :param surfaces: List of 3D objects in the scene that rays may intersect with.
+                     Used to fetch surface normals and calculate reflections.
+    :param materials: List of materials associated with the surfaces. Used for determining color properties.
+    :param lights: List of light sources in the scene, influencing lighting and shading calculations.
+    :param scene: SceneSettings object containing configuration for the scene, such as background color, shadow ray
+                  settings, and recursion depth.
+    :param camera: Camera object defining the viewpoint of the scene.
+    :param bsp_tree: BSPNode object representing a spatial partitioning tree for efficient intersection tests.
+
+    :return: A 2D ndarray of shape (H * W, 3) representing the image, with pixel colors computed from ray tracing.
     """
+
     print(scene.max_recursions)
-    if scene.max_recursions <= 0:
+    if scene.max_recursions <= 1:
         return np.full_like(rays_sources, scene.background_color)
 
     image_colors = np.full_like(rays_sources, scene.background_color)
@@ -150,8 +70,7 @@ def ray_tracing(rays_sources: np.ndarray,
 
     # 6.2: Check the intersection of the ray with all surfaces in the scene
     # 6.3: Find the nearest intersection of the ray. This is the surface that will be seen in the image
-    ray_hits, surfaces_indices = get_closest_hits(rays_sources=rays_sources, rays_directions=rays_directions,
-                                                  surfaces=surfaces)
+    ray_hits, surfaces_indices = bsp_tree.intersect_vectorize(ray_sources=rays_sources, ray_directions=rays_directions)
 
     bg_pixels = (surfaces_indices == 0)
     ray_hits = ray_hits[~bg_pixels]
@@ -167,9 +86,9 @@ def ray_tracing(rays_sources: np.ndarray,
     surfaces_to_lights_directions = compute_light_rays(ray_hits, lights)
     lights_diffusive, light_specular_intensity = get_light_base_colors(lights=lights,
                                                                        light_directions=surfaces_to_lights_directions,
-                                                                       surfaces=surfaces,
                                                                        hits=ray_hits,
-                                                                       shadow_rays_count=scene.root_number_shadow_rays)
+                                                                       shadow_rays_count=scene.root_number_shadow_rays,
+                                                                       up_vector=camera.y_dir,bsp_tree=bsp_tree)
 
     # 6.4.2: Add the value it induces on the surface.
     diffusive_colors = compute_diffuse_color(obj_diffuse_color=obj_diffusive_colors,
@@ -197,7 +116,7 @@ def ray_tracing(rays_sources: np.ndarray,
         go_through_colors[transparent_mask] = ray_tracing(rays_sources=go_through_sources,
                                                           rays_directions=go_through_rays_directions, surfaces=surfaces,
                                                           materials=materials, lights=lights, scene=recursion_scene,
-                                                          camera=camera)
+                                                          camera=camera, bsp_tree=bsp_tree)
     back_colors = go_through_colors * transparency_values
 
     reflective_mask = (np.linalg.norm(reflective_colors, axis=-1) != 0)
@@ -209,11 +128,11 @@ def ray_tracing(rays_sources: np.ndarray,
         reflection[reflective_mask] = ray_tracing(rays_sources=reflection_rays_sources,
                                                   rays_directions=reflection_rays_directions, surfaces=surfaces,
                                                   materials=materials,
-                                                  lights=lights, scene=recursion_scene, camera=camera)
+                                                  lights=lights, scene=recursion_scene, camera=camera,
+                                                  bsp_tree=bsp_tree)
     reflection *= reflective_colors
 
     image_colors[~bg_pixels] = (back_colors + base_colors + reflection)
-    image_colors[image_colors > 1] = 1
     return image_colors
 
 
