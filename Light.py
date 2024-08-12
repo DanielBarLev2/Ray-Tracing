@@ -1,8 +1,8 @@
 from util import *
+from ray_functions import compute_reflection_rays
 from surfaces import SurfaceAbs
-from SceneSettings import SceneSettings
 from surfaces.Object3D import Object3D
-from ray_functions import compute_rays_interactions, compute_rays_hits, get_closest_hits
+from BSPNode import BSPNode
 
 
 class Light:
@@ -26,6 +26,7 @@ class Light:
     def transform_to_camera(self, view_matrix) -> None:
         """
         Transform the position of the light using the view matrix.
+
         :param view_matrix: shifts and rotates the world coordinates to be aligned and centered on the camera.
         :return:
         """
@@ -53,37 +54,31 @@ def compute_light_rays(sources: np.ndarray, lights: list[Light]) -> np.ndarray:
     return normalized_directions
 
 
-def get_light_base_colors(lights: list[Light],
-                          light_directions: np.ndarray,
-                          surfaces: list[SurfaceAbs],
-                          hits: Matrix,
-                          shadow_rays_count: int):
+def get_light_base_colors(lights: list[Light], light_directions: np.ndarray, hits: Matrix, shadow_rays_count: int,
+                          up_vector: np.ndarray, bsp_tree: BSPNode):
     """
-    Calculate the base colors and specular values of light sources on surfaces.
+    Calculates the base color and specular intensity contributions of multiple light sources on surfaces.
 
-    This function computes the color and specular intensity contributions of multiple light sources
-    to a surface based on their interactions with the surfaces and the hits detected.
+    :param lights: List of Light objects, each containing properties such as position, color, specular intensity, and shadow intensity.
+    :param light_directions: 2D ndarray of shape (num_lights * height * width, 3) representing the direction vectors
+                             from each light source to each point on the surfaces.
+    :param hits: Matrix representing the hit points on the surfaces.
+    :param shadow_rays_count: Number of shadow rays used to compute light intensities and shadows.
+    :param up_vector: Vector used for calculating shadow ray deviations.
+    :param bsp_tree: BSP tree for efficiently checking intersections and computing shadows.
 
-    :param lights: A list of Light objects, each containing properties such as position, color,
-                   specular intensity, and shadow intensity.
-    :param light_directions: A 4D numpy array with shape (num_lights, height, width, 3) representing
-                             the direction vectors from each source to each light.
-    :param surfaces: A list of SurfaceAbs objects representing the surfaces in the scene.
-    :param hits: A Matrix representing the hit points on the surfaces.
-    :param scene: containing the number of shadow root rays.
-    :return: A tuple containing two numpy arrays:
-             - light_color: An array with the same shape as hits, representing the color contributions from the lights.
-             - light_specular: An array with the same shape as hits, representing the specular lights.
+    :return: Tuple containing two ndarrays:
+        - light_color: Array with the same shape as `hits`, representing the color contributions from each light source.
+        - light_specular: Array with the same shape as `hits`, representing the specular intensity contributions from each light source.
     """
     lights_diffusive = []
     lights_specular = []
     for i, light in enumerate(lights):
         light_direction = light_directions[i]
-        light_sources = np.full_like(light_direction, light.position)
         # light intensity
-        light_intensity = compute_shadows(light=light, surfaces=surfaces, light_sources=light_sources,
-                                          light_direction=-light_direction,
-                                          hits=hits, shadow_rays_count=shadow_rays_count).clip(0, 1)
+        light_intensity = compute_shadows(light=light, light_direction=-light_direction, hits=hits,
+                                          shadow_rays_count=shadow_rays_count, up_vector=up_vector,
+                                          bsp_tree=bsp_tree).clip(0, 1)
 
         # light specular induced color
         specular = light.specular_intensity * light_intensity * light.color
@@ -101,11 +96,21 @@ def get_light_base_colors(lights: list[Light],
 def compute_diffuse_color(obj_diffuse_color: Matrix, light_diffuse_color: Matrix, light_directions: Matrix,
                           surfaces_normals: Matrix):
     """
-        Specular color formula: Sum { Kd * (Lm * V) * Imd } for m in lights
-        Kd is diffusive color constant of the object, the ratio of reflection of the specular term of incoming light
-        Lm is the direction vector from the point on the surface toward each light source
-        N is the normal at this point on the surface
-        Ims is the light specular intensity"""
+    Computes the diffuse color contribution of surfaces illuminated by light sources.
+
+    Specular color formula: Sum { Kd * (Lm * V) * Imd } for m in lights
+    Kd is diffusive color constant of the object, the ratio of reflection of the specular term of incoming light
+    Lm is the direction vector from the point on the surface toward each light source
+    N is the normal at this point on the surface
+    Ims is the light specular intensity
+
+    :param obj_diffuse_color: Matrix of shape (h * w, 3) representing the diffuse color of the object.
+    :param light_diffuse_color: Matrix of shape (N * h * w, 3) representing the diffuse color of each light source.
+    :param light_directions: Matrix of shape (N * h * w, 3) representing the direction vectors from the surface to each light source.
+    :param surfaces_normals: Matrix of shape (h * w, 3) representing the normal vectors at each point on the surface.
+
+    :return: Matrix of shape (h * w, 3) representing the computed diffuse colors of the surface.
+    """
     Kd = obj_diffuse_color
     Lm = light_directions
     N = surfaces_normals
@@ -124,18 +129,30 @@ def compute_specular_colors(surfaces_specular_color: Matrix,
                             surface_normals: Matrix,
                             lights_specular_intensity: np.ndarray):
     """
+    Computes the specular color contribution of surfaces illuminated by light sources.
+
     Specular color formula: Sum { Ks * (Rm * V)^α * Ims } for m in lights
     Ks is specular reflection constant, the ratio of reflection of the specular term of incoming light
     Lm is the direction vector from the point on the surface toward each light source
     Rm is the direction of the reflected ray of light at this point on the surface
     V is the direction pointing towards the viewer (such as a virtual camera).
     α is shininess constant, which is larger for surfaces that are smoother and more mirror-like.
-       When this constant is large the specular highlight is small.
-    Ims is the light specular intensity"""
+        When this constant is large the specular highlight is small.
+    Ims is the light specular intensity
+
+    :param surfaces_specular_color: Matrix of shape (h * w, 3) representing the specular color of the surface.
+    :param surfaces_phong_coefficient: Matrix of shape (h * w) representing the Phong shininess coefficient for the surface.
+    :param surfaces_to_lights_directions: Matrix of shape (N * h * w, 3) representing the direction vectors from the surface to each light source.
+    :param viewer_directions: Matrix of shape (h * w, 3) representing the direction vectors from the surface to the viewer (camera).
+    :param surface_normals: Matrix of shape (h * w, 3) representing the normal vectors at each point on the surface.
+    :param lights_specular_intensity: Matrix of shape (N * h * w) representing the specular intensity of each light source.
+
+    :return: Matrix of shape (h * w, 3) representing the computed specular colors of the surface.
+    """
 
     Ks = surfaces_specular_color
     Lm = surfaces_to_lights_directions
-    Rm = compute_reflection_rays(lights_rays_directions=Lm, surface_normals=surface_normals)
+    Rm = compute_reflection_rays(rays_directions=Lm, surface_normals=surface_normals)
 
     V = viewer_directions
     alpha = surfaces_phong_coefficient[..., np.newaxis]
@@ -150,45 +167,38 @@ def compute_specular_colors(surfaces_specular_color: Matrix,
     return specular_colors
 
 
-def compute_reflection_rays(lights_rays_directions: np.ndarray, surface_normals: np.ndarray) -> np.ndarray:
+def compute_shadows(light: Light, light_direction: Matrix, hits: Matrix, shadow_rays_count: int, up_vector: np.ndarray,
+                    bsp_tree: BSPNode) -> np.ndarray:
     """
-    Calculate the reflected ray directions for multiple rays given their hit locations and corresponding normals.
-    important: reflection_rays is from_shooting_point_to_surfaces iff rays_directions is from_shooting_point_to_surfaces
-                i.e. incoming rays -> incoming reflection, outgoing rays -> outgoing reflection
+    Computes shadow intensity by casting rays to check for surfaces between the light and each pixel.
 
-    :param lights_rays_directions: A 4D array of ray directions (shape: [L, N, N, 3]).
-    :param surface_normals: A 3D array of the surface normals on ray impact point (shape: [N, N, 3]).
-    :return: A 3D array of reflected ray directions (shape: [N, N, 3]).
+    This function takes into account the shadow intensity of the light source and the number of shadow rays used.
+
+    :param light: Light object representing the light source, including shadow properties such as shadow intensity.
+    :param light_direction: Matrix of shape (N * h * w, 3) representing the direction vectors from the surface to the light source.
+    :param hits: Matrix of shape (N * h * w, 3) representing the hit points on the surfaces.
+    :param shadow_rays_count: Integer specifying the number of shadow rays to be cast to determine shadow intensity.
+    :param bsp_tree: BSPNode object representing the spatial partitioning tree for efficient ray-surface intersection tests.
+
+    :return: ndarray of shape (N * h * w) representing the shadow intensity for each pixel. The values range from
+             1.0 (fully lit) to 0.0 (fully shadowed), adjusted based on the light's shadow intensity.
     """
-    norms = np.linalg.norm(surface_normals, axis=-1, keepdims=True)
-    surface_normals = surface_normals / (norms + EPSILON)
-
-    dot_products = np.sum(lights_rays_directions * surface_normals, axis=-1, keepdims=True)
-
-    reflected_rays = 2 * dot_products * surface_normals - lights_rays_directions
-
-    return reflected_rays
-
-
-def compute_shadows(light: Light, surfaces: list[SurfaceAbs], light_sources: Matrix,
-                    light_direction: Matrix, hits: Matrix, shadow_rays_count: int):
     if light.shadow_intensity == 0:
         return np.ones_like(hits)
-
-    shadow_sources, shadow_rays = get_shadow_rays(light=light,
-                                                  shadows_rays=shadow_rays_count,
-                                                  normals_rays=light_direction,
-                                                  hits=hits)
 
     # n - number of pixels, c - color axis(3), s - shadows count
     n, c = hits.shape
     s = shadow_rays_count
 
+    shadow_sources, shadow_rays = get_shadow_rays(light=light, shadows_rays=s,
+                                                  light_to_surfaces_directions=light_direction, hits=hits,
+                                                  up_vector=up_vector)
+
     # calculate for each shadow ray the first item it hits
     shadow_sources = shadow_sources.reshape((n * s * s, c))
     shadow_rays = shadow_rays.reshape((n * s * s, c))
-    light_hits, l_hits_object_indices = get_closest_hits(surfaces=surfaces, rays_sources=shadow_sources,
-                                                         rays_directions=shadow_rays)
+    light_hits, l_hits_indices = bsp_tree.intersect_vectorize(ray_sources=shadow_sources, ray_directions=shadow_rays)
+
     light_hits: Matrix = light_hits.reshape((n, s, s, c))
 
     # for each pixel calculate percentage of shadow rays that hit it directly
@@ -203,36 +213,32 @@ def compute_shadows(light: Light, surfaces: list[SurfaceAbs], light_sources: Mat
     return shadow_intensity
 
 
-def get_shadow_rays(light: Light, shadows_rays: int, normals_rays: Matrix, hits: Matrix) -> tuple[
-    np.ndarray, np.ndarray]:
+def get_shadow_rays(light: Light, shadows_rays: int, light_to_surfaces_directions: Matrix, hits: Matrix, up_vector) -> \
+        tuple[np.ndarray, np.ndarray]:
     """
     Compute shadow rays originating from the light source.
-    :param light: The light source.
-    :param shadows_rays: Number of shadow rays.
-    :param normals_rays: Normal vectors at the hit points.
-    @pre normals_rays are normalized
+    Generates shadow rays from the light source for each pixel in the shadow map.
+    The rays are adjusted with random deviations to simulate a more realistic shadow.
+    
+    :param light: Light object representing the light source.
+    :param shadows_rays: Number of shadow rays to be cast.
+    :param light_to_surfaces_directions: Matrix representing directions from the light to the surface.
+    :param hits: Matrix of hit points on the surfaces.
+    
+    :return: Tuple containing:
+        - ray_sources: ndarray of shape (N, shadows_rays, shadows_rays, 3) with the starting points of shadow rays.
+        - ray_vectors: ndarray of shape (N, shadows_rays, shadows_rays, 3) with the direction vectors of shadow rays.
 
-    :param hits: Hit points on the surfaces.
-    :return: Tuple of ray sources and ray vectors.
+    @pre light_to_surfaces_directions are normalized.
+
     """
 
     h = w = light.radius
     shadows_rays = n = int(shadows_rays)
     granularity = h / shadows_rays
 
-    light_sources = np.full_like(normals_rays, light.position)
-    up = Y_DIRECTION
-    if np.any(np.all(np.cross(normals_rays, up) < EPSILON, axis=-1)):
-        up = Z_DIRECTION
-
-    # Compute up and right vectors
-    up_projection = np.sum(up * normals_rays, axis=-1, keepdims=True)
-    up = up - up_projection * normals_rays
-    up = up / (np.linalg.norm(up, axis=-1, keepdims=True) + EPSILON)
-
-    right = np.cross(up, normals_rays)
-    right = right / (np.linalg.norm(right, axis=-1, keepdims=True) + EPSILON)
-
+    light_sources = np.full_like(light_to_surfaces_directions, light.position)
+    light_to_surfaces_directions, up, right = diagonalize_vectors(light_to_surfaces_directions, up_vector)
     # Compute pixel centers
     screen_center = light_sources
     pixel_0_0_centers = screen_center + ((h - granularity) / 2 * up) - ((w - granularity) / 2 * right)
