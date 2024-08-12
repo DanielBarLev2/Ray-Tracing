@@ -41,6 +41,16 @@ class BSPNode:
         self.inf_plains: list = inf_plains
         self.surfaces = surfaces
 
+    def __repr__(self, depth=0):
+        indent = "  " * depth  # Create an indent based on the depth of the node
+        surf_len = 0 if self.surfaces is None else len(self.surfaces)
+        repr_str = f"{indent}BSPNode(cut={self.cut:}, bounds=({self.small_bound}, {self.big_bound}), {surf_len} surfaces={self.surfaces}\n"
+        if self.left is not None:
+            repr_str += self.left.__repr__(depth + 1)
+        if self.right is not None:
+            repr_str += self.right.__repr__(depth + 1)
+        return repr_str
+
     @staticmethod
     def build_bsp_tree_rec(surfaces: list[SurfaceContainer], min_small_bound=None, max_big_bound=None,
                            inf_plains: list[SurfaceAbs] = None):
@@ -198,13 +208,3 @@ class BSPNode:
         """
         BSPNode.BSP_COUNTER += 1
         return self.intersect_vectorize_rec(ray_sources, ray_directions)
-
-    def __repr__(self, depth=0):
-        indent = "  " * depth  # Create an indent based on the depth of the node
-        surf_len = 0 if self.surfaces is None else len(self.surfaces)
-        repr_str = f"{indent}BSPNode(cut={self.cut:}, bounds=({self.small_bound}, {self.big_bound}), {surf_len} surfaces={self.surfaces}\n"
-        if self.left is not None:
-            repr_str += self.left.__repr__(depth + 1)
-        if self.right is not None:
-            repr_str += self.right.__repr__(depth + 1)
-        return repr_str
