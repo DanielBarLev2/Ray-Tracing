@@ -36,6 +36,7 @@ class Camera:
         :return: view_matrix that defines the camera as (0, 0, 0) in world coordinates.
         """
         forward = self.look_at - self.position
+        forward /= np.linalg.norm(forward, axis=-1, keepdims=True)
         forward, up, right = diagonalize_vectors(forward, self.up_vector)
 
         view_matrix = np.array([[right[0], right[1], right[2], -np.dot(right, self.position)],
