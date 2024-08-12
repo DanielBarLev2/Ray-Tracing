@@ -7,6 +7,7 @@ from Camera import Camera
 def get_initial_rays(camera: Camera, image_width: int, image_height: int) -> tuple[np.ndarray, np.ndarray]:
     """
     Generates a 3D array of ray vectors for each pixel in the specified image dimensions based on the camera settings.
+
     :param camera: the camera object with properties defining its screen size and distance.
     :param image_width: the number of horizontal pixels in the image.
     :param image_height: the number of vertical pixels in the image.
@@ -46,12 +47,16 @@ def compute_rays_interactions(surfaces: list[SurfaceAbs],
                               rays_sources: np.ndarray,
                               rays_directions: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
-    Computes rays interactions with 3D surfaces.
-    :param surfaces: list of SurfaceAbs objects representing the 3d surfaces.
-    :param rays_sources: matrix of ray source coordinates.
-    :param rays_directions: matrix of ray direction coordinates.
-    :return: ray_interactions: a list of interactions between all rays and every object in the scene.
-             index_list: a list of indices. Signify its object.
+    Computes the interactions of rays with 3D objects and finds the closest intersection points.
+
+
+    :param surfaces: List of SurfaceAbs objects representing the 3D surfaces in the scene.
+    :param rays_sources: ndarray of shape (N, 3) representing the source coordinates of N rays.
+    :param rays_directions: ndarray of shape (N, 3) representing the direction vectors of N rays.
+
+    :return: Tuple containing:
+        - ray_interactions: ndarray of shape (N, 3) with the closest intersection points between rays and surfaces.
+        - index_list: ndarray of shape (N,) with indices of the surfaces that the rays intersected with.
     """
     closest_intersections = np.full_like(rays_directions, np.nan)
     closest_intersections_dist = np.full(rays_directions.shape[0], np.inf)
@@ -74,45 +79,27 @@ def compute_rays_interactions(surfaces: list[SurfaceAbs],
     return closest_intersections, closest_intersections_indices
 
 
-def compute_rays_hits(ray_sources: np.ndarray, ray_interactions: list[np.ndarray], index_list: list[int]) -> tuple[
-    np.ndarray, np.ndarray]:
-    """
-    Compare the distance from the ray source to each interaction point in space.
-    If the new distance is smaller (the interaction point is closer to the ray origin),
-    update to reflect this closest interaction.
-
-    :param ray_sources: an ndarray of the same size as ray_interactions, representing the sources of the rays.
-    :param ray_interactions: a list of interactions between all rays and every object in the scene.
-    :param index_list: a list of indices representing the surface each ray interacts with.
-    :return: ray_hits: matrix representing the position in space of the closest interaction for each ray.
-             surface_indices: matrix representing which surface was interacted by a ray.
-    """
-    # Stack the ray_interactions list into a single numpy array
-    stacked_arrays = np.stack(ray_interactions)  # Shape: (num_interactions, h*w, c)
-
-    # Calculate distances from the ray source to each interaction point
-    distances = np.linalg.norm(stacked_arrays - ray_sources, axis=-1)  # Shape: (num_interactions, h*w)
-
-    # Create a mask to identify NaN values, replace them with a large number to ignore them
-    nan_mask = np.isnan(distances)
-    distances_with_large_number = np.where(nan_mask, np.inf, distances)  # Shape: (num_interactions, h*w)
-
-    # Find the indices of the minimum distances
-    min_dist_indices = np.argmin(distances_with_large_number, axis=0)  # Shape: (h*w)
-
-    # Use these indices to gather the closest interaction points
-    ray_hits = stacked_arrays[min_dist_indices, np.arange(stacked_arrays.shape[1])]  # Shape: (h*w, c)
-
-    # Convert the index_list to a numpy array
-    indices_array = np.array(index_list)  # Shape: (num_interactions,)
-
-    # Get the surface indices using the min_dist_indices
-    surface_indices = indices_array[min_dist_indices]  # Shape: (h*w)
-
-    return ray_hits, surface_indices
-
-
 def get_closest_hits(rays_sources: Matrix, rays_directions: Matrix, surfaces: list[SurfaceAbs]) \
         -> tuple[Matrix, Matrix]:
     rays_interactions, index_list = compute_rays_interactions(surfaces, rays_sources, rays_directions)
     return rays_interactions, index_list
+
+
+def compute_reflection_rays(rays_directions: np.ndarray, surface_normals: np.ndarray) -> np.ndarray:
+    """
+    Calculate the reflected ray directions for multiple rays given their hit locations and corresponding normals.
+    important: reflection_rays is from_shooting_point_to_surfaces iff rays_directions is from_shooting_point_to_surfaces
+                i.e. incoming rays -> incoming reflection, outgoing rays -> outgoing reflection
+
+    :param rays_directions: A 2D array of ray directions (shape: [N, 3]).
+    :param surface_normals: A 2D array of the surface normals on ray impact point (shape: [N, 3]).
+    :return: A 2D array of reflected ray directions (shape: [N, 3]).
+    """
+    norms = np.linalg.norm(surface_normals, axis=-1, keepdims=True)
+    surface_normals = surface_normals / norms
+
+    dot_products = np.sum(rays_directions * surface_normals, axis=-1, keepdims=True)
+
+    reflected_rays = 2 * dot_products * surface_normals - rays_directions
+
+    return reflected_rays
