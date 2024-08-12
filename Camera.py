@@ -9,6 +9,7 @@ class Camera:
         self.screen_distance = screen_distance
         self.screen_width = screen_width
         self.look_direction = self.look_at - self.position
+        self.look_direction /= np.linalg.norm(self.look_direction)
         self.z_dir, self.y_dir, self.x_dir = diagonalize_vectors(self.look_direction, self.up_vector)
         self.view_mat = None
 
