@@ -2,7 +2,7 @@
 cam	-0.10	0.20	0.00	0.00	-0.10	1.00	0.00	1.00	0.00	1.00	1.20
 
 #Settings:	bgr	    bgg	    bgb	    sh_rays	    rec_max
-set	        0.00	0.00	0.00	3	        8
+set	        0.00	0.00	0.00	3	        10
 
 #Material:	dr	    dg	    db	    sr	    sg	    sb	    rr	    rg	    rb	    phong	trans
 #1 water
