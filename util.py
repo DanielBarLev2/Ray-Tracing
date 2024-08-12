@@ -24,14 +24,10 @@ def normalize_to_color(matrix):
     :param matrix: A 3D numpy array of shape (h, w, d).
     :return: A 3D numpy array of the same shape with values between 0 and 255.
     """
-    # Create a mask for NaN values
     nan_mask = np.isnan(matrix)
-
-    # Replace NaN values with the minimum value of the matrix (ignoring NaNs)
     min_val = np.nanmin(matrix)
     max_val = np.nanmax(matrix)
 
-    # Copy the matrix and replace NaNs with the minimum value
     normalized_matrix = np.copy(matrix)
     normalized_matrix[nan_mask] = min_val
 
@@ -44,33 +40,37 @@ def normalize_to_color(matrix):
     # Scale to the range [0, 255]
     scaled_matrix = (inverted_matrix * 255).astype(np.uint8)
 
-    # Optionally, set NaN locations back to a specific value (e.g., 255 for bright color)
-    scaled_matrix[nan_mask] = 255  # or any other value to represent NaNs
+    scaled_matrix[nan_mask] = 255
 
     return scaled_matrix
 
 
-def diagonalize_vectors(vector1: Vector, vector2: Vector):
+def create_orthonormal_basis(vector1: Vector, vector2: Vector=None):
     """
-    Diagonalizes two vectors to create an orthonormal basis. The first vector is assumed to be normalized. The second
-    vector is orthogonalized with respect to the first vector, and the third vector is computed as the cross product of
-    the first two vectors.
+    Diagonalizes two vectors to create an orthonormal basis. The first vector is assumed to be normalized.
+
+    The second vector (if given) is orthogonalized with respect to the first vector.
+    And the third vector is computed as the cross product of the first two vectors.
 
     :param vector1: ndarray of shape (..., 3) representing the first vector, which is assumed to be normalized.
-    :param vector2: ndarray of shape (..., 3) representing the second vector to be orthogonalized with respect to vector1.
+    :param vector2: ndarray of shape (..., 3) representing the second Vector, not parallel to vector1
     :return: Tuple containing:
         - vector1: The input first vector
-        - vector2: Orthogonalized and normalized version of the second input vector.
+        - vector2: Orthonormal vector computed from vector1. (or computed from dot product of vector1 and vector2)
         - vector3: Orthonormal vector computed as the cross product of the normalized vector1 and vector2.
 
     @pre vector1 is normalized
+    @pre vector2 if given, is normalized and not parallel to vector1
     """
-    vector2_projection = np.sum(vector1 * vector2, axis=-1, keepdims=True)
-    vector2 = vector2 - vector2_projection * vector1
-    vector2 = vector2 / (np.linalg.norm(vector2, axis=-1, keepdims=True) + EPSILON)
+    if vector2 is None:
+        vector2 = get_orthonormal_vector(vector1)
+    else:
+        vector2_projection = np.sum(vector1 * vector2, axis=-1, keepdims=True)
+        vector2 = vector2 - vector2_projection * vector1
+        vector2 = vector2 / (np.linalg.norm(vector2, axis=-1, keepdims=True) + EPSILON)
 
     vector3 = np.cross(vector2, vector1)
-    vector3 = vector3 / (np.linalg.norm(vector3, axis=-1, keepdims=True)+EPSILON)
+    vector3 = vector3 / (np.linalg.norm(vector3, axis=-1, keepdims=True) + EPSILON)
 
     return vector1, vector2, vector3
 
@@ -108,3 +108,25 @@ def display_image(image_colors: np.ndarray):
     bgr_image = cv2.cvtColor(image_colors, cv2.COLOR_RGB2BGR)
     cv2.imshow('RGB Image', bgr_image)
     cv2.waitKey(0)
+
+
+def get_orthonormal_vector(vector1: np.ndarray) -> np.ndarray:
+    """
+    Generates an orthonormal vector to the given input vector.
+
+    :param vector1: 2D ndarray where each row is a vector for which an orthonormal vector needs to be computed.
+    :return: 2D ndarray where each row is an orthonormal vector to the corresponding input vector.
+    """
+    up = np.zeros_like(vector1)
+    v1 = 1
+    v2 = 1
+    # Set the first two components to v1 and v2
+    up[:, 0] = v1
+    up[:, 1] = v2
+
+    # Solve for the third component (v3) for each vector
+    nonzero_mask = vector1[:, 2] != 0
+    up[nonzero_mask, 2] = -(v1 * vector1[nonzero_mask, 0] + v2 * vector1[
+        nonzero_mask, 1]) / vector1[nonzero_mask, 2]
+    up /= np.linalg.norm(up, axis=-1, keepdims=True)
+    return up

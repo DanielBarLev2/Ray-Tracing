@@ -10,7 +10,7 @@ class Camera:
         self.screen_width = screen_width
         self.look_direction = self.look_at - self.position
         self.look_direction /= np.linalg.norm(self.look_direction)
-        self.z_dir, self.y_dir, self.x_dir = diagonalize_vectors(self.look_direction, self.up_vector)
+        self.z_dir, self.y_dir, self.x_dir = create_orthonormal_basis(self.look_direction, self.up_vector)
         self.view_mat = None
 
     def __repr__(self):
@@ -38,7 +38,7 @@ class Camera:
         """
         forward = self.look_at - self.position
         forward /= np.linalg.norm(forward, axis=-1, keepdims=True)
-        forward, up, right = diagonalize_vectors(forward, self.up_vector)
+        forward, up, right = create_orthonormal_basis(forward, self.up_vector)
 
         view_matrix = np.array([[right[0], right[1], right[2], -np.dot(right, self.position)],
                                 [up[0], up[1], up[2], -np.dot(up, self.position)],
