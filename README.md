@@ -1,21 +1,21 @@
-### Ray Tracer
+# Ray Tracer
 
 A ray tracer shoots rays from the observer’s eye (the camera) through a screen and into a scence, which contains one or more surfaces.
 it calculates the rays intersection with the surfaces, finds the nearest intersection and calculates the color of the surface according to its material and lighting conditions.
 
-# Surfaces
+## Surfaces
 • Spheres. Each sphere is defined by the position of its center and its radius.
 • Infinite planes. Each plane is defined by its normal N and an offset c along the normal. A point P on the plane will satisfy the formula P · N = c.
 • Cubes. Each cube is defined by the position of its center (x, y, z) and its edge length (scalar). All boxes are axis aligned (meaning no rotations) to make the computation of intersections easier.
 
-# Materials
+## Materials
 • Diffuse color (RGB). This is the ”regular” color of a surface. 
 • Specular color (RGB). Specularity is the reflection of a light source.
 • Phong specularity coefficient (floating point number).
 • Reflection color (RGB). Reflections from the surface are multiplied by this value. 
 • Transparency (floating point number). This value will be 0 when the material is opaque (not transparent at all) and 1 when the material is completely transparent.
 
-# Scene Definition Format
+## Scene Definition Format
 The scenes are defined in text scene files with the following format:
 "cam" = camera settings (there will be only one per scene file)
 params[0,1,2] = position (x, y, z) of the camera
