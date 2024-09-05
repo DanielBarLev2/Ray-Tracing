@@ -1,6 +1,6 @@
 # Ray Tracer
 
-A ray tracer shoots rays from the observer’s eye (the camera) through a screen and into a scence, which contains one or more surfaces.
+A ray tracer shoots rays from the observer’s eye (the camera) through a screen and into a scene, which contains one or more surfaces.
 it calculates the rays intersection with the surfaces, finds the nearest intersection and calculates the color of the surface according to its material and lighting conditions.
 
 ## Surfaces
@@ -23,29 +23,35 @@ params[3,4,5] = look-at position (x, y, z) of the camera
 params[6,7,8] = up vector (x, y, z) of the camera
 params[9] = screen distance from camera
 params[10] = screen width from camera
+
 "set" = general settings for the scene (once per scene file)
 params[0,1,2] = background color (r, g, b)
 params[3] = root number of shadow rays (N2 rays will be shot)
 params[4] = maximum number of recursions
+
 "mtl" = defines a new material
 params[0,1,2] = diffuse color (r, g, b)
 params[3,4,5] = specular color (r, g, b)
 params[6,7,8] = reflection color (r, g, b)
 params[9] = phong specularity coefficient (shininess)
 params[10] = transparency value between 0 and 1
+
 "sph" = defines a new sphere
 params[0,1,2] = position of the sphere center (x, y, z)
 params[3] = radius
 params[4] = material index (integer). each defined material gets an
 automatic material index starting from 1, 2 and so on
+
 "pln" = defines a new plane
 params[0,1,2] = normal (x, y, z)
 params[3] = offset
 params[4] = material index
+
 "box" = defines a new box
 params[0,1,2] = position of the box center (x, y, z)
 params[3] = scale of the box, length of each edge
 params[4] = material index
+
 "lgt" = defines a new light
 params[0,1,2] = position of the light (x, y, z)
 params[3,4,5] = light color (r, g, b)
